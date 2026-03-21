@@ -180,32 +180,55 @@ function renderDigestCard(digest) {
   const el = document.getElementById('digestCard');
   if (!el) return;
 
-  const velocity = JSON.parse(digest.velocity_data || '[]');
-  const maxCompleted = Math.max(...velocity.map(v => v.completed), 1);
-
-  let barsHtml = '';
-  if (velocity.length) {
-    barsHtml = '<div style="display:flex;align-items:flex-end;gap:4px;height:40px;margin-top:8px;">';
-    for (const v of velocity) {
-      const h = Math.max(4, (v.completed / maxCompleted) * 36);
-      barsHtml += `<div style="flex:1;height:${h}px;background:${v.color || 'var(--primary)'};border-radius:3px;min-width:8px;" title="${v.name}: ${v.completed}件"></div>`;
-    }
-    barsHtml += '</div>';
+  let velocityData = {};
+  try {
+    const parsed = JSON.parse(digest.velocity_data || '{}');
+    velocityData = Array.isArray(parsed) ? {} : parsed;
+  } catch (_) {
+    velocityData = {};
   }
+
+  const completed = digest.tasks_completed || 0;
+  const added = digest.tasks_added || 0;
+  const active = digest.projects_active || 0;
+  const prevCompleted = velocityData.prev_completed || 0;
+  const prevAdded = velocityData.prev_added || 0;
+
+  function diffIcon(current, prev) {
+    const diff = current - prev;
+    if (diff > 0) return `<span class="digest-stat-diff up" style="display:inline;">↑${diff}</span>`;
+    if (diff < 0) return `<span class="digest-stat-diff down" style="display:inline;">↓${Math.abs(diff)}</span>`;
+    return '';
+  }
+
+  // Truncate pia comment to ~2 lines
+  const comment = digest.pia_comment || '';
+  const truncated = comment.length > 80 ? comment.slice(0, 80) + '...' : comment;
 
   el.innerHTML = `
     <div class="card section" style="cursor:pointer;" onclick="location.href='/digest-detail'">
-      <div style="font-size:14px;font-weight:700;margin-bottom:6px;">📊 先週のダイジェスト</div>
-      <div class="pia-comment" style="margin-bottom:8px;">
-        <img src="${getPiaImage('happy')}" alt="ピアちゃん" class="pia-icon-sm" onerror="this.src='/icon-pia.png'">
-        <div class="pia-bubble" style="font-size:13px;">${escHtml(digest.pia_comment || '')}</div>
+      <div style="font-size:14px;font-weight:700;margin-bottom:8px;">先週のダイジェスト</div>
+      ${comment ? `
+        <div class="pia-comment" style="margin-bottom:10px;">
+          <img src="${getPiaImage('happy')}" alt="ピアちゃん" class="pia-icon-sm" onerror="this.src='/icon-pia.png'" style="width:36px;height:36px;">
+          <div class="pia-bubble" style="font-size:12px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">${escHtml(truncated)}</div>
+        </div>
+      ` : ''}
+      <div class="digest-stats" style="margin-bottom:8px;">
+        <div class="digest-stat-box" style="padding:10px;">
+          <div class="digest-stat-value" style="font-size:18px;">${completed}</div>
+          <div class="digest-stat-label">完了 ${diffIcon(completed, prevCompleted)}</div>
+        </div>
+        <div class="digest-stat-box" style="padding:10px;">
+          <div class="digest-stat-value" style="font-size:18px;">${added}</div>
+          <div class="digest-stat-label">追加 ${diffIcon(added, prevAdded)}</div>
+        </div>
+        <div class="digest-stat-box" style="padding:10px;">
+          <div class="digest-stat-value" style="font-size:18px;">${active}</div>
+          <div class="digest-stat-label">稼働PJ</div>
+        </div>
       </div>
-      <div style="display:flex;gap:16px;font-size:12px;color:var(--text-sub);">
-        <span>✅ ${digest.tasks_completed}件完了</span>
-        <span>📋 ${digest.tasks_added}件追加</span>
-        <span>📁 ${digest.projects_active}件稼働</span>
-      </div>
-      ${barsHtml}
+      <div style="text-align:right;font-size:12px;color:var(--primary-dark);font-weight:600;">詳細を見る →</div>
     </div>
   `;
   el.style.display = '';
