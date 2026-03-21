@@ -168,3 +168,51 @@ function goToProject() {
   closeModal('aiSuggestModal');
   loadProjects();
 }
+
+// ==============================
+// テンプレート選択
+// ==============================
+async function openTemplateSelect() {
+  closeModal('aiSuggestModal');
+  showToast('テンプレートを読み込み中...');
+  try {
+    const data = await apiFetch('/api/templates');
+    const templates = data.templates || [];
+
+    if (!templates.length) {
+      showToast('テンプレートがありません');
+      return;
+    }
+
+    document.getElementById('templateSelectList').innerHTML = templates.map(t => {
+      const taskCount = Array.isArray(t.tasks_json) ? t.tasks_json.length : 0;
+      return `
+        <div class="task-item" style="cursor:pointer;" onclick="applyTemplate('${t.id}')">
+          <div class="task-content">
+            <div class="task-text">${escHtml(t.name)}</div>
+            <div class="task-meta">
+              <span>${t.type === 'study' ? '📖' : '🔨'}</span>
+              <span>📋 ${taskCount}タスク</span>
+              ${t.description ? `<span>${escHtml(t.description)}</span>` : ''}
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    openModal('templateModal');
+  } catch (e) { showToast(`エラー: ${e.message}`); }
+}
+
+async function applyTemplate(templateId) {
+  if (!lastCreatedId) { showToast('プロジェクトが見つかりません'); return; }
+  try {
+    const data = await apiFetch(`/api/templates/${templateId}/apply`, {
+      method: 'POST',
+      body: JSON.stringify({ project_id: lastCreatedId }),
+    });
+    closeModal('templateModal');
+    showToast(`📋 ${data.count}件のタスクを追加しました！`);
+    location.href = `/project-detail?id=${lastCreatedId}`;
+  } catch (e) { showToast(`エラー: ${e.message}`); }
+}

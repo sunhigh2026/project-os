@@ -5,6 +5,8 @@ let project = null;
 let tasks = [];
 let editPriority = 'mid';
 let suggestedTasks = [];
+let notes = [];
+let currentNoteFilter = 'all';
 
 // ==============================
 // 初期化
@@ -34,6 +36,12 @@ async function loadProject(id) {
     if (project.github_repo) {
       document.getElementById('githubCheckBtn').style.display = '';
       loadGithub();
+    }
+
+    // 学習時間セクション
+    if (project.type === 'study') {
+      document.getElementById('studyTimeSection').style.display = '';
+      loadStudyStats();
     }
 
     // AI提案自動起動
@@ -117,6 +125,12 @@ function renderTaskGroup(taskList, groupStatus) {
     if (overdue) metaParts.push(`<span style="color:var(--accent-red);">期限超過</span>`);
     if (metaParts.length) metaHtml = `<div class="task-meta${overdue ? ' overdue' : ''}">${metaParts.join('')}</div>`;
 
+    let memoHtml = '';
+    if (t.memo) {
+      const short = t.memo.length > 40 ? t.memo.slice(0, 40) + '...' : t.memo;
+      memoHtml = `<div style="font-size:11px;color:var(--text-sub);margin-top:2px;">💬 ${linkify(escHtml(short))}</div>`;
+    }
+
     return `
       <div class="task-item" ${overdue ? 'style="background:rgba(252,165,165,0.08);"' : ''}>
         <div class="task-check ${checkClass}" onclick="cycleStatus('${t.id}', '${nextStatus}')"></div>
@@ -124,6 +138,7 @@ function renderTaskGroup(taskList, groupStatus) {
         <div class="task-content" onclick="openEditTask('${t.id}')">
           <div class="task-text ${textClass}">${escHtml(t.text)}</div>
           ${metaHtml}
+          ${memoHtml}
         </div>
       </div>
     `;
@@ -187,6 +202,7 @@ function openEditTask(taskId) {
   document.getElementById('editTaskPhase').value = task.phase || '';
   document.getElementById('editTaskDueStart').value = task.due_start || '';
   document.getElementById('editTaskDueEnd').value = task.due_end || '';
+  document.getElementById('editTaskMemo').value = task.memo || '';
 
   // スコア（studyタイプのみ）
   if (project.type === 'study') {
@@ -214,6 +230,7 @@ async function saveTask() {
     phase: document.getElementById('editTaskPhase').value.trim() || null,
     due_start: document.getElementById('editTaskDueStart').value || null,
     due_end: document.getElementById('editTaskDueEnd').value || null,
+    memo: document.getElementById('editTaskMemo').value.trim() || null,
   };
 
   if (project.type === 'study') {
@@ -265,12 +282,15 @@ function openEditProject() {
 }
 
 async function saveProject() {
+  const newStatus = document.getElementById('editProjectStatus').value;
+  const wasActive = project.status !== 'done';
+
   const body = {
     name: document.getElementById('editProjectName').value.trim(),
     description: document.getElementById('editProjectDesc').value.trim() || null,
     goal_date: document.getElementById('editProjectGoalDate').value || null,
     github_repo: document.getElementById('editProjectGithub').value.trim() || null,
-    status: document.getElementById('editProjectStatus').value,
+    status: newStatus,
   };
 
   try {
@@ -279,6 +299,15 @@ async function saveProject() {
       body: JSON.stringify(body),
     });
     Object.assign(project, body);
+
+    // After successful save, check if becoming done
+    if (newStatus === 'done' && wasActive) {
+      closeModal('editProjectModal');
+      renderProject();
+      openModal('reviewConfirmModal');
+      return;
+    }
+
     closeModal('editProjectModal');
     renderProject();
     showToast('✅ 更新しました');
@@ -509,6 +538,212 @@ async function applyGithubSuggestion(taskId, status, btn) {
   } catch (e) {
     showToast(`エラー: ${e.message}`);
   }
+}
+
+// ==============================
+// GitHub表示
+// ==============================
+// ==============================
+// タブ切り替え
+// ==============================
+function switchTab(tab) {
+  document.getElementById('tabTasks').classList.toggle('active', tab === 'tasks');
+  document.getElementById('tabNotes').classList.toggle('active', tab === 'notes');
+  document.getElementById('taskView').style.display = tab === 'tasks' ? '' : 'none';
+  document.getElementById('noteView').style.display = tab === 'notes' ? '' : 'none';
+  if (tab === 'notes' && !notes.length) loadNotes();
+}
+
+// ==============================
+// ノート機能
+// ==============================
+async function loadNotes() {
+  try {
+    const data = await apiFetch(`/api/projects/${project.id}/notes`);
+    notes = data.notes || [];
+    renderNotes();
+  } catch (e) { showToast(`エラー: ${e.message}`); }
+}
+
+function renderNotes() {
+  const filtered = currentNoteFilter === 'all' ? notes : notes.filter(n => n.type === currentNoteFilter);
+  const el = document.getElementById('noteList');
+
+  if (!filtered.length) {
+    el.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-sub);font-size:13px;">ノートはまだないよ〜</div>';
+    return;
+  }
+
+  const typeIcons = { memo: '📝', idea: '💡', link: '🔗', spec: '📄' };
+
+  el.innerHTML = filtered.map(n => {
+    const icon = typeIcons[n.type] || '📝';
+    const isLink = n.type === 'link' || n.type === 'spec';
+    const contentHtml = isLink && n.content
+      ? `<a href="${escHtml(n.content)}" target="_blank" rel="noopener" style="color:var(--primary-dark);font-size:12px;word-break:break-all;">${escHtml(n.content)}</a>`
+      : n.content ? `<div style="font-size:12px;color:var(--text-sub);margin-top:2px;white-space:pre-wrap;">${linkify(escHtml(n.content))}</div>` : '';
+
+    return `
+      <div class="task-item" style="${n.type === 'spec' ? 'background:var(--primary-light);border-radius:8px;padding:10px;margin-bottom:4px;' : ''}">
+        <div style="font-size:18px;">${icon}</div>
+        <div class="task-content" style="cursor:pointer;" onclick="${isLink && n.content ? `window.open('${escHtml(n.content)}','_blank')` : ''}">
+          <div class="task-text">${escHtml(n.title)}</div>
+          ${contentHtml}
+          <div class="task-meta"><span>${formatDate(n.created_at?.slice(0,10))}</span></div>
+        </div>
+        <button class="btn btn-sm btn-ghost" onclick="deleteNote('${n.id}')" title="削除">🗑</button>
+      </div>
+    `;
+  }).join('');
+}
+
+function filterNotes(type, btn) {
+  currentNoteFilter = type;
+  document.querySelectorAll('#noteView .filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderNotes();
+}
+
+function onNoteTypeChange() {
+  const type = document.getElementById('noteType').value;
+  const isLink = type === 'link' || type === 'spec';
+  document.getElementById('noteContentGroup').style.display = isLink ? 'none' : '';
+  document.getElementById('noteUrlGroup').style.display = isLink ? '' : 'none';
+  document.getElementById('noteContentLabel').textContent = type === 'idea' ? 'アイデア内容' : '内容';
+}
+
+function openAddNote() {
+  document.getElementById('noteType').value = 'memo';
+  document.getElementById('noteTitle').value = '';
+  document.getElementById('noteContent').value = '';
+  document.getElementById('noteUrl').value = '';
+  onNoteTypeChange();
+  openModal('addNoteModal');
+}
+
+async function saveNote() {
+  const type = document.getElementById('noteType').value;
+  const title = document.getElementById('noteTitle').value.trim();
+  if (!title) { showToast('タイトルを入力してください'); return; }
+
+  const isLink = type === 'link' || type === 'spec';
+  const content = isLink ? document.getElementById('noteUrl').value.trim() : document.getElementById('noteContent').value.trim();
+
+  try {
+    await apiFetch(`/api/projects/${project.id}/notes`, {
+      method: 'POST',
+      body: JSON.stringify({ type, title, content: content || null }),
+    });
+    closeModal('addNoteModal');
+    showToast('📝 ノートを追加しました');
+    loadNotes();
+  } catch (e) { showToast(`エラー: ${e.message}`); }
+}
+
+async function deleteNote(noteId) {
+  if (!confirm('このノートを削除しますか？')) return;
+  try {
+    await apiFetch(`/api/notes/${noteId}`, { method: 'DELETE' });
+    notes = notes.filter(n => n.id !== noteId);
+    renderNotes();
+    showToast('🗑 削除しました');
+  } catch (e) { showToast(`エラー: ${e.message}`); }
+}
+
+function linkify(text) {
+  return text.replace(/(https?:\/\/[^\s]+|obsidian:\/\/[^\s]+)/g, '<a href="$1" target="_blank" rel="noopener" style="color:var(--primary-dark);">$1</a>');
+}
+
+// ==============================
+// ふりかえり生成
+// ==============================
+async function generateReview() {
+  closeModal('reviewConfirmModal');
+  showToast('📝 ふりかえりを生成中...');
+  try {
+    const data = await apiFetch(`/api/reviews/${project.id}/generate`, { method: 'POST' });
+
+    document.getElementById('aiResultTitle').textContent = '🎉 ふりかえり';
+    let html = `<div style="margin-bottom:12px;">${escHtml(data.summary || '')}</div>`;
+    if (data.highlights?.length) {
+      html += '<div style="margin-bottom:8px;"><strong>✨ よかったこと</strong></div>';
+      html += data.highlights.map(h => `<div style="font-size:13px;padding:2px 0;">• ${escHtml(h)}</div>`).join('');
+    }
+    if (data.learnings?.length) {
+      html += '<div style="margin:8px 0;"><strong>📚 学んだこと</strong></div>';
+      html += data.learnings.map(l => `<div style="font-size:13px;padding:2px 0;">• ${escHtml(l)}</div>`).join('');
+    }
+
+    document.getElementById('aiResultContent').textContent = data.pia_comment || 'おつかれさま〜！';
+    document.getElementById('aiResultExtra').innerHTML = html;
+    openModal('aiResultModal');
+  } catch (e) { showToast(`エラー: ${e.message}`); }
+}
+
+// ==============================
+// 学習時間
+// ==============================
+async function loadStudyStats() {
+  try {
+    const data = await apiFetch(`/api/projects/${project.id}/study-stats`);
+    const el = document.getElementById('studyTimeContent');
+
+    const fmtTime = (m) => m >= 60 ? `${Math.floor(m/60)}時間${m%60 ? m%60+'分' : ''}` : `${m}分`;
+    const goalMin = project.daily_minutes || 60;
+    const pct = Math.min(100, Math.round((data.today_minutes / goalMin) * 100));
+
+    let html = `
+      <div style="display:flex;justify-content:space-around;text-align:center;margin-bottom:16px;">
+        <div>
+          <div style="font-size:20px;font-weight:700;color:var(--primary-dark);">${fmtTime(data.today_minutes)}</div>
+          <div style="font-size:11px;color:var(--text-sub);">今日</div>
+        </div>
+        <div>
+          <div style="font-size:20px;font-weight:700;">${fmtTime(data.week_minutes)}</div>
+          <div style="font-size:11px;color:var(--text-sub);">今週</div>
+        </div>
+        <div>
+          <div style="font-size:20px;font-weight:700;">${fmtTime(data.total_minutes)}</div>
+          <div style="font-size:11px;color:var(--text-sub);">累計</div>
+        </div>
+      </div>
+    `;
+
+    // Progress bar for today
+    html += `
+      <div style="margin-bottom:12px;">
+        <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-sub);margin-bottom:4px;">
+          <span>今日の達成率</span>
+          <span>${data.today_minutes}分 / ${goalMin}分 (${pct}%)</span>
+        </div>
+        <div class="progress-bar"><div class="progress-bar-fill" style="width:${pct}%"></div></div>
+      </div>
+    `;
+
+    // Daily bar chart (last 14 days)
+    if (data.daily?.length) {
+      const maxMin = Math.max(...data.daily.map(d => d.minutes), goalMin);
+      html += '<div style="font-size:12px;font-weight:600;margin-bottom:8px;">📊 直近14日の学習時間</div>';
+      html += '<div style="display:flex;align-items:flex-end;gap:3px;height:80px;">';
+      for (const d of data.daily) {
+        const h = maxMin > 0 ? Math.max(2, (d.minutes / maxMin) * 70) : 2;
+        const label = d.date.slice(5); // MM-DD
+        const isToday = d.date === todayJST();
+        html += `<div style="flex:1;display:flex;flex-direction:column;align-items:center;">
+          <div style="width:100%;height:${h}px;background:${isToday ? 'var(--primary)' : 'var(--primary-light)'};border-radius:3px 3px 0 0;min-width:4px;" title="${label}: ${d.minutes}分"></div>
+        </div>`;
+      }
+      html += '</div>';
+      html += '<div style="display:flex;gap:3px;font-size:9px;color:var(--text-sub);">';
+      for (const d of data.daily) {
+        const dayNum = new Date(d.date + 'T00:00:00').getDate();
+        html += `<div style="flex:1;text-align:center;">${dayNum}</div>`;
+      }
+      html += '</div>';
+    }
+
+    el.innerHTML = html;
+  } catch (_) {}
 }
 
 // ==============================

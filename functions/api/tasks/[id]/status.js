@@ -21,9 +21,21 @@ export async function onRequest({ params, request, env }) {
 
   const done_at = status === 'done' ? new Date().toISOString() : null;
 
-  await env.DB.prepare(
-    'UPDATE tasks SET status = ?, done_at = ? WHERE id = ?'
-  ).bind(status, done_at, id).run();
+  if (status === 'doing') {
+    // Only set started_at if not already set
+    await env.DB.prepare(
+      'UPDATE tasks SET status = ?, done_at = ?, started_at = COALESCE(started_at, ?) WHERE id = ?'
+    ).bind(status, done_at, new Date().toISOString(), id).run();
+  } else if (status === 'open') {
+    await env.DB.prepare(
+      'UPDATE tasks SET status = ?, done_at = ?, started_at = NULL WHERE id = ?'
+    ).bind(status, done_at, id).run();
+  } else {
+    // done
+    await env.DB.prepare(
+      'UPDATE tasks SET status = ?, done_at = ? WHERE id = ?'
+    ).bind(status, done_at, id).run();
+  }
 
   return json({ ok: true, status });
 }

@@ -14,6 +14,7 @@ async function loadDashboard() {
     renderPiaAdvice(data);
     renderTodayTasks(data.todayTasks, data.today);
     renderProjectProgress(data.projects);
+    loadDigest();
     // AIアドバイス取得（バックグラウンド）
     loadAiAdvice();
   } catch (e) {
@@ -135,13 +136,16 @@ function renderProjectProgress(projects) {
     return;
   }
 
-  el.innerHTML = projects.map(p => {
+  el.innerHTML = projects.filter(p => p.status === 'active').map(p => {
     const total = p.total_tasks || 0;
     const done = p.done_tasks || 0;
     const pct = total ? Math.round((done / total) * 100) : 0;
     const remaining = formatRelativeDate(p.goal_date);
     const color = p.color || '#7EC8B0';
     const typeIcon = p.type === 'study' ? '📖' : '🔨';
+
+    const studyHtml = p.type === 'study' && p.daily_minutes ?
+      `<div style="font-size:11px;color:var(--primary-dark);margin-top:4px;">⏱ 目標: ${p.daily_minutes}分/日</div>` : '';
 
     return `
       <div class="mini-card" style="border-left-color:${escHtml(color)};cursor:pointer;" onclick="location.href='/project-detail?id=${p.id}'">
@@ -153,7 +157,56 @@ function renderProjectProgress(projects) {
           <span>${done}/${total} (${pct}%)</span>
           ${remaining ? `<span>🎯 ${remaining}</span>` : ''}
         </div>
+        ${studyHtml}
       </div>
     `;
   }).join('');
+}
+
+// ==============================
+// ダイジェスト
+// ==============================
+async function loadDigest() {
+  try {
+    const data = await apiFetch('/api/digests');
+    const digests = data.digests || [];
+    if (digests.length) {
+      renderDigestCard(digests[0]);
+    }
+  } catch (_) {}
+}
+
+function renderDigestCard(digest) {
+  const el = document.getElementById('digestCard');
+  if (!el) return;
+
+  const velocity = JSON.parse(digest.velocity_data || '[]');
+  const maxCompleted = Math.max(...velocity.map(v => v.completed), 1);
+
+  let barsHtml = '';
+  if (velocity.length) {
+    barsHtml = '<div style="display:flex;align-items:flex-end;gap:4px;height:40px;margin-top:8px;">';
+    for (const v of velocity) {
+      const h = Math.max(4, (v.completed / maxCompleted) * 36);
+      barsHtml += `<div style="flex:1;height:${h}px;background:${v.color || 'var(--primary)'};border-radius:3px;min-width:8px;" title="${v.name}: ${v.completed}件"></div>`;
+    }
+    barsHtml += '</div>';
+  }
+
+  el.innerHTML = `
+    <div class="card section" style="cursor:pointer;" onclick="location.href='/digest-detail'">
+      <div style="font-size:14px;font-weight:700;margin-bottom:6px;">📊 先週のダイジェスト</div>
+      <div class="pia-comment" style="margin-bottom:8px;">
+        <img src="${getPiaImage('happy')}" alt="ピアちゃん" class="pia-icon-sm" onerror="this.src='/icon-pia.png'">
+        <div class="pia-bubble" style="font-size:13px;">${escHtml(digest.pia_comment || '')}</div>
+      </div>
+      <div style="display:flex;gap:16px;font-size:12px;color:var(--text-sub);">
+        <span>✅ ${digest.tasks_completed}件完了</span>
+        <span>📋 ${digest.tasks_added}件追加</span>
+        <span>📁 ${digest.projects_active}件稼働</span>
+      </div>
+      ${barsHtml}
+    </div>
+  `;
+  el.style.display = '';
 }

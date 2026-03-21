@@ -35,8 +35,16 @@
       <button class="ai-btn" onclick="reviewProject()">📝 ふりかえり</button>
     </div>
 
-    <!-- タスクリスト -->
+    <!-- タブ切り替え -->
     <div style="padding:0 16px;">
+      <div class="detail-tabs" style="display:flex;gap:8px;margin-top:12px;">
+        <button class="filter-btn active" id="tabTasks" onclick="switchTab('tasks')">📋 タスク</button>
+        <button class="filter-btn" id="tabNotes" onclick="switchTab('notes')">📝 ノート</button>
+      </div>
+    </div>
+
+    <!-- タスクビュー -->
+    <div id="taskView" style="padding:0 16px;">
       <!-- やること -->
       <div class="section-header" style="padding:16px 0 8px;">
         <span class="section-title">📋 やること</span>
@@ -57,6 +65,27 @@
         <span class="section-count" id="doneCount"></span>
       </div>
       <div id="doneTasks"></div>
+    </div>
+
+    <!-- ノートビュー -->
+    <div id="noteView" style="display:none;padding:0 16px;">
+      <!-- ノートフィルタ -->
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin:12px 0;">
+        <button class="filter-btn active" onclick="filterNotes('all', this)">すべて</button>
+        <button class="filter-btn" onclick="filterNotes('idea', this)">💡 アイデア</button>
+        <button class="filter-btn" onclick="filterNotes('link', this)">🔗 リンク</button>
+        <button class="filter-btn" onclick="filterNotes('spec', this)">📄 仕様書</button>
+      </div>
+      <div id="noteList"></div>
+      <button class="btn btn-secondary" style="width:100%;margin-top:12px;" onclick="openAddNote()">+ ノートを追加</button>
+    </div>
+
+    <!-- 学習時間セクション (studyタイプ時のみ表示) -->
+    <div id="studyTimeSection" style="display:none;padding:0 16px;">
+      <div class="section-header" style="padding:16px 0 8px;">
+        <span class="section-title">⏱ 学習時間</span>
+      </div>
+      <div class="card" style="padding:16px;" id="studyTimeContent"></div>
     </div>
 
     <!-- GitHub セクション -->
@@ -116,6 +145,10 @@
       <div class="form-group" id="editScoreGroup" style="display:none;">
         <label>スコア</label>
         <input type="number" id="editTaskScore" placeholder="点数">
+      </div>
+      <div class="form-group">
+        <label>メモ</label>
+        <textarea id="editTaskMemo" rows="3" placeholder="メモ、参考リンク、ハマったことなど"></textarea>
       </div>
       <div style="display:flex;gap:8px;margin-top:16px;">
         <button class="btn btn-primary" style="flex:1;" onclick="saveTask()">保存</button>
@@ -203,6 +236,56 @@
         <button class="modal-close" onclick="closeModal('subdivideSelectModal')">&times;</button>
       </div>
       <div id="subdivideTaskList"></div>
+    </div>
+  </div>
+
+  <!-- ノート追加モーダル -->
+  <div class="modal-overlay" id="addNoteModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>ノート追加</h2>
+        <button class="modal-close" onclick="closeModal('addNoteModal')">&times;</button>
+      </div>
+      <div class="form-group">
+        <label>タイプ</label>
+        <select id="noteType" onchange="onNoteTypeChange()">
+          <option value="memo">📝 メモ</option>
+          <option value="idea">💡 アイデア</option>
+          <option value="link">🔗 リンク</option>
+          <option value="spec">📄 仕様書</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>タイトル</label>
+        <input type="text" id="noteTitle" placeholder="タイトル">
+      </div>
+      <div class="form-group" id="noteContentGroup">
+        <label id="noteContentLabel">内容</label>
+        <textarea id="noteContent" rows="4" placeholder="自由にメモしてね"></textarea>
+      </div>
+      <div class="form-group" id="noteUrlGroup" style="display:none;">
+        <label>URL</label>
+        <input type="url" id="noteUrl" placeholder="https:// or obsidian://open?vault=...">
+      </div>
+      <button class="btn btn-primary" style="width:100%;margin-top:8px;" onclick="saveNote()">追加</button>
+    </div>
+  </div>
+
+  <!-- ふりかえり生成確認モーダル -->
+  <div class="modal-overlay" id="reviewConfirmModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>🎉 プロジェクト完了！</h2>
+        <button class="modal-close" onclick="closeModal('reviewConfirmModal')">&times;</button>
+      </div>
+      <div class="pia-comment" style="margin-bottom:16px;">
+        <img src="/pia-happy.png" alt="ピアちゃん" class="pia-icon-sm" onerror="this.src='/icon-pia.png'">
+        <div class="pia-bubble">おつかれさま〜！ふりかえりを作成する？✨</div>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-primary" style="flex:1;" onclick="generateReview()">作成する</button>
+        <button class="btn btn-ghost" style="flex:1;" onclick="closeModal('reviewConfirmModal')">あとで</button>
+      </div>
     </div>
   </div>
 

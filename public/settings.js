@@ -5,6 +5,7 @@ document.addEventListener('DOMContentLoaded', () => {
   loadSettings();
   loadRecurring();
   loadProjectsForRecurring();
+  loadTemplates();
 });
 
 // ==============================
@@ -181,4 +182,50 @@ async function deleteRecurring(id) {
   } catch (e) {
     showToast(`エラー: ${e.message}`);
   }
+}
+
+// ==============================
+// テンプレート管理
+// ==============================
+async function loadTemplates() {
+  try {
+    const data = await apiFetch('/api/templates');
+    renderTemplates(data.templates || []);
+  } catch (e) {
+    document.getElementById('templateList').innerHTML = '<div style="color:var(--text-sub);font-size:13px;">読み込みに失敗しました</div>';
+  }
+}
+
+function renderTemplates(list) {
+  const el = document.getElementById('templateList');
+  if (!list.length) {
+    el.innerHTML = '<div style="color:var(--text-sub);font-size:13px;">テンプレートはありません</div>';
+    return;
+  }
+
+  el.innerHTML = list.map(t => {
+    const taskCount = Array.isArray(t.tasks_json) ? t.tasks_json.length : 0;
+    return `
+      <div class="task-item">
+        <div class="task-content">
+          <div class="task-text">${escHtml(t.name)}</div>
+          <div class="task-meta">
+            <span>${t.type === 'study' ? '📖' : '🔨'} ${t.type}</span>
+            <span>📋 ${taskCount}タスク</span>
+            <span>${formatDate(t.created_at?.slice(0,10))}</span>
+          </div>
+        </div>
+        <button class="btn btn-sm btn-ghost" onclick="deleteTemplate('${t.id}')" title="削除">🗑</button>
+      </div>
+    `;
+  }).join('');
+}
+
+async function deleteTemplate(id) {
+  if (!confirm('このテンプレートを削除しますか？')) return;
+  try {
+    await apiFetch(`/api/templates/${id}`, { method: 'DELETE' });
+    showToast('🗑 削除しました');
+    loadTemplates();
+  } catch (e) { showToast(`エラー: ${e.message}`); }
 }

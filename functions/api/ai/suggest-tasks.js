@@ -43,6 +43,21 @@ export async function onRequestPost({ request, env }) {
     'SELECT text, phase, status FROM tasks WHERE project_id = ?'
   ).bind(project_id).all();
 
+  // 過去のふりかえりから学びを取得
+  const { results: pastLearnings } = await env.DB.prepare(
+    'SELECT learnings, summary FROM reviews ORDER BY created_at DESC LIMIT 3'
+  ).all();
+
+  let learningsContext = '';
+  if (pastLearnings.length) {
+    const allLearnings = pastLearnings.flatMap(r => {
+      try { return JSON.parse(r.learnings || '[]'); } catch (_) { return []; }
+    });
+    if (allLearnings.length) {
+      learningsContext = `\n過去のプロジェクトからの学び:\n${allLearnings.map(l => `- ${l}`).join('\n')}\nこれらの学びを活かしてタスクを提案してください。`;
+    }
+  }
+
   const now = new Date();
   const jst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
   const today = jst.toISOString().slice(0, 10);
@@ -63,7 +78,7 @@ ${existingTasks.length ? `既存タスク:\n${existingTasks.map(t => `- [${t.sta
 ${userPrompt ? `ユーザーの追加要望: ${userPrompt}` : ''}
 
 ${isStudy ? 'フェーズ分けと学習ロードマップ形式で提案してください。' : 'フェーズ分けして実装の順序を提案してください。'}
-
+${learningsContext}
 ルール:
 - 各タスクは30分〜2時間で終わる粒度
 - 趣味プロジェクトなので楽しく続けられる内容に

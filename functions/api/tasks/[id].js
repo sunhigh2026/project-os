@@ -12,7 +12,7 @@ export async function onRequestPut({ params, request, env }) {
 
   const fields = [];
   const values = [];
-  for (const key of ['text', 'priority', 'phase', 'due_start', 'due_end', 'duration_days', 'status', 'is_milestone', 'score', 'sort_order']) {
+  for (const key of ['text', 'priority', 'phase', 'due_start', 'due_end', 'duration_days', 'status', 'is_milestone', 'score', 'sort_order', 'memo']) {
     if (body[key] !== undefined) {
       fields.push(`${key} = ?`);
       values.push(body[key]);

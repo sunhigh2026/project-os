@@ -90,10 +90,22 @@
         <button class="modal-close" onclick="closeModal('aiSuggestModal')">&times;</button>
       </div>
       <p style="font-size:14px;color:var(--text-sub);margin-bottom:16px;">ピアちゃんがプロジェクトに合ったタスクを提案するよ！</p>
-      <div style="display:flex;gap:8px;">
-        <button class="btn btn-primary" style="flex:1;" onclick="goToProjectWithAI()">提案してもらう</button>
-        <button class="btn btn-ghost" style="flex:1;" onclick="goToProject()">あとで</button>
+      <div style="display:flex;gap:8px;flex-direction:column;">
+        <button class="btn btn-primary" onclick="goToProjectWithAI()">🐷 AIに提案してもらう</button>
+        <button class="btn btn-secondary" onclick="openTemplateSelect()">📋 テンプレートから追加</button>
+        <button class="btn btn-ghost" onclick="goToProject()">あとで</button>
       </div>
+    </div>
+  </div>
+
+  <!-- テンプレート選択モーダル -->
+  <div class="modal-overlay" id="templateModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>📋 テンプレートを選択</h2>
+        <button class="modal-close" onclick="closeModal('templateModal')">&times;</button>
+      </div>
+      <div id="templateSelectList"></div>
     </div>
   </div>
 

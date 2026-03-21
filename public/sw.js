@@ -1,4 +1,4 @@
-const CACHE_NAME = 'project-os-v1';
+const CACHE_NAME = 'project-os-v2';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -6,6 +6,8 @@ const STATIC_ASSETS = [
   '/project-detail',
   '/gantt',
   '/settings',
+  '/digest-detail',
+  '/reviews',
   '/style.css',
   '/app.js',
   '/dashboard.js',
@@ -13,6 +15,10 @@ const STATIC_ASSETS = [
   '/project-detail.js',
   '/gantt.js',
   '/settings.js',
+  '/digest-detail.html',
+  '/digest-detail.js',
+  '/reviews.html',
+  '/reviews.js',
   '/icon-pia.png',
   '/pia-normal.png',
   '/pia-happy.png',
