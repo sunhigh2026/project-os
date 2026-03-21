@@ -86,10 +86,14 @@ ${doingTasks.map(t => `- [${t.project_name}] ${t.text}`).join('\n') || 'なし'}
     const nonThought = parts.filter(p => p.text !== undefined && p.thought !== true);
     const responseText = (nonThought.length > 0 ? nonThought : parts).map(p => p.text || '').join('');
 
-    // JSON抽出
-    const codeBlock = responseText.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
+    // JSON抽出（複数パターン対応）
     let parsed = null;
+
+    // パターン1: ```json ... ``` コードブロック
+    const codeBlock = responseText.match(/```(?:json)?\s*\n?([\s\S]*?)\n?\s*```/);
     if (codeBlock) { try { parsed = JSON.parse(codeBlock[1].trim()); } catch (_) {} }
+
+    // パターン2: 生のJSONオブジェクト
     if (!parsed) {
       const s = responseText.indexOf('{');
       const e = responseText.lastIndexOf('}');
@@ -100,8 +104,18 @@ ${doingTasks.map(t => `- [${t.project_name}] ${t.text}`).join('\n') || 'なし'}
       return json({ advice: parsed.advice, pia_mood: parsed.pia_mood || 'normal' });
     }
 
-    // フォールバック: テキストそのまま返す
-    return json({ advice: responseText.slice(0, 150) || '今日もがんばろうね〜！', pia_mood: 'normal' });
+    // フォールバック: マークダウンやJSON記法を除去してテキストを返す
+    let fallback = responseText
+      .replace(/```(?:json)?\s*\n?/g, '')
+      .replace(/```/g, '')
+      .replace(/^\s*\{[\s\S]*\}\s*$/, '')  // 生JSON全体を除去
+      .trim();
+    // それでもJSON風なら最後の手段でadviceフィールドを正規表現で抽出
+    if (!fallback || fallback.startsWith('{')) {
+      const adviceMatch = responseText.match(/"advice"\s*:\s*"([^"]+)"/);
+      fallback = adviceMatch ? adviceMatch[1] : '今日もがんばろうね〜！';
+    }
+    return json({ advice: fallback.slice(0, 150) || '今日もがんばろうね〜！', pia_mood: 'normal' });
   } catch (e) {
     return json({ advice: '今日もがんばろうね〜！🐷', pia_mood: 'normal' });
   }

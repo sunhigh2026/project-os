@@ -2,10 +2,10 @@ const CACHE_NAME = 'project-os-v1';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
-  '/projects.html',
-  '/project-detail.html',
-  '/gantt.html',
-  '/settings.html',
+  '/projects',
+  '/project-detail',
+  '/gantt',
+  '/settings',
   '/style.css',
   '/app.js',
   '/dashboard.js',
@@ -70,7 +70,7 @@ self.addEventListener('fetch', (event) => {
     }).catch(() => {
       // オフラインフォールバック
       if (event.request.mode === 'navigate') {
-        return caches.match('/index.html');
+        return caches.match('/');
       }
     })
   );

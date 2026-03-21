@@ -52,7 +52,7 @@ function renderProjects() {
     const color = p.color || '#7EC8B0';
 
     return `
-      <div class="project-card" style="border-left-color:${escHtml(color)};" onclick="location.href='/project-detail.html?id=${p.id}'">
+      <div class="project-card" style="border-left-color:${escHtml(color)};" onclick="location.href='/project-detail?id=${p.id}'">
         <div class="project-card-header">
           <span class="project-type-icon">${typeIcon}</span>
           <span class="project-name">${escHtml(p.name)}</span>
@@ -157,13 +157,13 @@ async function createProject() {
 // ==============================
 function goToProjectWithAI() {
   if (lastCreatedId) {
-    location.href = `/project-detail.html?id=${lastCreatedId}&suggest=1`;
+    location.href = `/project-detail?id=${lastCreatedId}&suggest=1`;
   }
 }
 
 function goToProject() {
   if (lastCreatedId) {
-    location.href = `/project-detail.html?id=${lastCreatedId}`;
+    location.href = `/project-detail?id=${lastCreatedId}`;
   }
   closeModal('aiSuggestModal');
   loadProjects();

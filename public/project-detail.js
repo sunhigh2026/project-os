@@ -11,7 +11,7 @@ let suggestedTasks = [];
 // ==============================
 document.addEventListener('DOMContentLoaded', () => {
   const id = new URLSearchParams(location.search).get('id');
-  if (!id) { location.href = '/projects.html'; return; }
+  if (!id) { location.href = '/projects'; return; }
   loadProject(id);
 });
 
@@ -38,7 +38,7 @@ async function loadProject(id) {
 
     // AI提案自動起動
     if (new URLSearchParams(location.search).get('suggest') === '1') {
-      history.replaceState(null, '', `/project-detail.html?id=${id}`);
+      history.replaceState(null, '', `/project-detail?id=${id}`);
       suggestTasks();
     }
   } catch (e) {
@@ -293,7 +293,7 @@ async function deleteProject() {
   try {
     await apiFetch(`/api/projects/${project.id}`, { method: 'DELETE' });
     showToast('🗑 削除しました');
-    location.href = '/projects.html';
+    location.href = '/projects';
   } catch (e) {
     showToast(`エラー: ${e.message}`);
   }

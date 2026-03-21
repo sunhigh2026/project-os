@@ -96,7 +96,7 @@ function renderTodayTasks(tasks, today) {
       <div class="task-item" ${overdue ? 'style="background:rgba(252,165,165,0.08);border-radius:8px;padding:12px 8px;"' : ''}>
         <div class="task-check ${checkClass}" onclick="dashCycleStatus('${t.id}', '${nextStatus}')"></div>
         <div class="priority-dot ${t.priority || 'mid'}"></div>
-        <div class="task-content" onclick="location.href='/project-detail.html?id=${t.project_id}'" style="cursor:pointer;">
+        <div class="task-content" onclick="location.href='/project-detail?id=${t.project_id}'" style="cursor:pointer;">
           <div class="task-text">${escHtml(t.text)}</div>
           <div class="task-meta${overdue ? ' overdue' : ''}">
             <span style="color:${escHtml(t.project_color || '#7EC8B0')};">●</span>
@@ -130,7 +130,7 @@ function renderProjectProgress(projects) {
 
   if (!projects || !projects.length) {
     el.innerHTML = `<div style="text-align:center;padding:20px;color:var(--text-sub);font-size:13px;">
-      <a href="/projects.html" style="color:var(--primary-dark);">プロジェクトを作成する →</a>
+      <a href="/projects" style="color:var(--primary-dark);">プロジェクトを作成する →</a>
     </div>`;
     return;
   }
@@ -144,7 +144,7 @@ function renderProjectProgress(projects) {
     const typeIcon = p.type === 'study' ? '📖' : '🔨';
 
     return `
-      <div class="mini-card" style="border-left-color:${escHtml(color)};cursor:pointer;" onclick="location.href='/project-detail.html?id=${p.id}'">
+      <div class="mini-card" style="border-left-color:${escHtml(color)};cursor:pointer;" onclick="location.href='/project-detail?id=${p.id}'">
         <div class="mini-card-title">${typeIcon} ${escHtml(p.name)}</div>
         <div class="progress-bar" style="margin-bottom:4px;">
           <div class="progress-bar-fill" style="width:${pct}%"></div>
