@@ -91,10 +91,14 @@ export async function onRequestPost({ env }) {
   const apiKey = await getGeminiKey(env);
   if (apiKey) {
     try {
-      const prompt = `以下のデータをもとに、ピアちゃんとして先週の振り返りコメントを200文字以内で書いてください。
-よかった点、改善点、来週へのアドバイスを含めてください。ピアちゃん口調（〜だよ、〜だね、絵文字あり）で。
+      const prompt = `以下のデータをもとに、ピアちゃんとして先週の振り返りコメントを書いてください。
+よかった点、改善点、来週へのアドバイスを含めてください。
+ピアちゃん口調（〜だよ、〜だね、絵文字あり）で、200文字以内で。
 
-${JSON.stringify(statsData, null, 2)}`;
+${JSON.stringify(statsData, null, 2)}
+
+以下のJSON形式で返答してください（他の文章は不要）:
+{"pia_comment":"コメント本文"}`;
 
       const res = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
@@ -113,7 +117,21 @@ ${JSON.stringify(statsData, null, 2)}`;
         const nonThought = parts.filter(p => p.text !== undefined && p.thought !== true);
         const text = (nonThought.length > 0 ? nonThought : parts).map(p => p.text || '').join('');
         const parsed = extractJSON(text);
-        piaComment = parsed?.comment || parsed?.pia_comment || text.replace(/```[\s\S]*```/g, '').replace(/[{}"]/g, '').trim().slice(0, 200) || piaComment;
+        if (parsed?.pia_comment) {
+          piaComment = parsed.pia_comment;
+        } else if (parsed?.comment) {
+          piaComment = parsed.comment;
+        } else {
+          // フォールバック: "pia_comment" フィールドを正規表現で抽出
+          const match = text.match(/"pia_comment"\s*:\s*"([^"]+)"/);
+          if (match) {
+            piaComment = match[1];
+          } else {
+            // コードブロックやJSON記法を除去してテキストのみ取得
+            const cleaned = text.replace(/```[\s\S]*?```/g, '').replace(/^\s*\{[\s\S]*\}\s*$/m, '').trim();
+            if (cleaned) piaComment = cleaned.slice(0, 300);
+          }
+        }
       }
     } catch (_) {}
   }
