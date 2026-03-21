@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mkdir -p \"C:/Users/ocura/Documents/Dev/project-os/public\")",
+      "Bash(mkdir -p \"C:/Users/ocura/Documents/Dev/project-os/functions/api/projects/[id]/tasks\")",
+      "Bash(mkdir -p \"C:/Users/ocura/Documents/Dev/project-os/functions/api/tasks/[id]\")",
+      "Bash(mkdir -p \"C:/Users/ocura/Documents/Dev/project-os/functions/api/ai\")",
+      "Bash(mkdir -p \"C:/Users/ocura/Documents/Dev/project-os/functions/api/github/[projectId]\")"
+    ]
+  }
+}

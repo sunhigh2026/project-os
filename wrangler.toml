@@ -1,0 +1,12 @@
+name = "project-os"
+compatibility_date = "2024-01-01"
+pages_build_output_dir = "public"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "project-os-db"
+database_id = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+
+# 環境変数はCloudflare Pagesダッシュボード Settings > Variables and Secrets で設定してください
+# AUTH_TOKEN: 認証トークン
+# GEMINI_API_KEY: Gemini APIキー

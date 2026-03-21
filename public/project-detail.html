@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#F0FAF6">
+  <title>プロジェクト詳細 - Project OS</title>
+  <link rel="stylesheet" href="/style.css">
+  <link rel="icon" href="/icon-pia.png">
+  <link rel="manifest" href="/manifest.json">
+</head>
+<body>
+  <div class="app-wrapper">
+    <!-- ヘッダー -->
+    <div class="card section" style="margin:16px;position:relative;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+        <a href="/projects.html" style="text-decoration:none;font-size:20px;color:var(--text-sub);">←</a>
+        <span id="projectTypeIcon" class="project-type-icon"></span>
+        <h2 id="projectName" style="flex:1;font-size:18px;"></h2>
+        <button class="btn btn-sm btn-ghost" onclick="openEditProject()">✏️</button>
+      </div>
+      <div id="projectDesc" style="font-size:13px;color:var(--text-sub);margin-bottom:10px;display:none;"></div>
+      <div class="progress-bar" style="margin-bottom:6px;">
+        <div class="progress-bar-fill" id="progressFill" style="width:0%"></div>
+      </div>
+      <div id="projectMeta" class="project-meta"></div>
+    </div>
+
+    <!-- AIアクションボタン -->
+    <div class="ai-actions" style="padding:0 16px;" id="aiActions">
+      <button class="ai-btn" onclick="suggestTasks()">🐷 タスクを提案して</button>
+      <button class="ai-btn" onclick="scheduleProject()">📅 スケジュールを組んで</button>
+      <button class="ai-btn" onclick="openSubdivideSelect()">✂️ タスクを分解</button>
+      <button class="ai-btn" id="githubCheckBtn" style="display:none;" onclick="githubCheck()">🔗 GitHub照合</button>
+      <button class="ai-btn" onclick="reviewProject()">📝 ふりかえり</button>
+    </div>
+
+    <!-- タスクリスト -->
+    <div style="padding:0 16px;">
+      <!-- やること -->
+      <div class="section-header" style="padding:16px 0 8px;">
+        <span class="section-title">📋 やること</span>
+        <span class="section-count" id="openCount"></span>
+      </div>
+      <div id="openTasks"></div>
+
+      <!-- 作業中 -->
+      <div class="section-header" style="padding:16px 0 8px;">
+        <span class="section-title">🔧 作業中</span>
+        <span class="section-count" id="doingCount"></span>
+      </div>
+      <div id="doingTasks"></div>
+
+      <!-- 完了 -->
+      <div class="section-header" style="padding:16px 0 8px;">
+        <span class="section-title">✅ 完了</span>
+        <span class="section-count" id="doneCount"></span>
+      </div>
+      <div id="doneTasks"></div>
+    </div>
+
+    <!-- GitHub セクション -->
+    <div id="githubSection" style="display:none;padding:0 16px 16px;">
+      <div class="section-header" style="padding:16px 0 8px;">
+        <span class="section-title">🐙 GitHub</span>
+      </div>
+      <div class="github-section" id="githubContent"></div>
+    </div>
+
+    <!-- 下部余白（クイック追加分） -->
+    <div style="height:80px;"></div>
+  </div>
+
+  <!-- クイック追加 -->
+  <div class="quick-add">
+    <div class="quick-add-inner">
+      <input type="text" id="quickAddInput" placeholder="タスクを追加..." onkeydown="if(event.key==='Enter')quickAddTask()">
+      <button class="btn btn-primary btn-sm" onclick="quickAddTask()">追加</button>
+    </div>
+  </div>
+
+  <!-- タブバーなし（詳細画面なので） -->
+
+  <!-- タスク編集モーダル -->
+  <div class="modal-overlay" id="editTaskModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>タスク編集</h2>
+        <button class="modal-close" onclick="closeModal('editTaskModal')">&times;</button>
+      </div>
+      <input type="hidden" id="editTaskId">
+      <div class="form-group">
+        <label>タスク名</label>
+        <input type="text" id="editTaskText">
+      </div>
+      <div class="form-group">
+        <label>優先度</label>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-sm edit-priority" data-p="high" onclick="selectEditPriority('high')">🔴 高</button>
+          <button class="btn btn-sm edit-priority" data-p="mid" onclick="selectEditPriority('mid')">🟡 中</button>
+          <button class="btn btn-sm edit-priority" data-p="low" onclick="selectEditPriority('low')">⚪ 低</button>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>フェーズ</label>
+        <input type="text" id="editTaskPhase" placeholder="例: フェーズ1: 企画">
+      </div>
+      <div class="form-group">
+        <label>開始日</label>
+        <input type="date" id="editTaskDueStart">
+      </div>
+      <div class="form-group">
+        <label>終了日</label>
+        <input type="date" id="editTaskDueEnd">
+      </div>
+      <div class="form-group" id="editScoreGroup" style="display:none;">
+        <label>スコア</label>
+        <input type="number" id="editTaskScore" placeholder="点数">
+      </div>
+      <div style="display:flex;gap:8px;margin-top:16px;">
+        <button class="btn btn-primary" style="flex:1;" onclick="saveTask()">保存</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteTask()">削除</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- プロジェクト編集モーダル -->
+  <div class="modal-overlay" id="editProjectModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>プロジェクト編集</h2>
+        <button class="modal-close" onclick="closeModal('editProjectModal')">&times;</button>
+      </div>
+      <div class="form-group">
+        <label>プロジェクト名</label>
+        <input type="text" id="editProjectName">
+      </div>
+      <div class="form-group">
+        <label>説明</label>
+        <textarea id="editProjectDesc" rows="3"></textarea>
+      </div>
+      <div class="form-group">
+        <label>目標日</label>
+        <input type="date" id="editProjectGoalDate">
+      </div>
+      <div class="form-group">
+        <label>GitHubリポジトリ</label>
+        <input type="text" id="editProjectGithub" placeholder="owner/repo">
+      </div>
+      <div class="form-group">
+        <label>ステータス</label>
+        <select id="editProjectStatus">
+          <option value="active">進行中</option>
+          <option value="paused">休止</option>
+          <option value="done">完了</option>
+        </select>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:16px;">
+        <button class="btn btn-primary" style="flex:1;" onclick="saveProject()">保存</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteProject()">削除</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- AI提案モーダル -->
+  <div class="modal-overlay" id="suggestModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>🐷 ピアちゃんの提案</h2>
+        <button class="modal-close" onclick="closeModal('suggestModal')">&times;</button>
+      </div>
+      <div id="suggestPiaComment" class="pia-comment" style="margin-bottom:16px;">
+        <img src="/pia-happy.png" alt="ピアちゃん" class="pia-icon-sm" onerror="this.src='/icon-pia.png'">
+        <div class="pia-bubble" id="suggestComment"></div>
+      </div>
+      <div id="suggestList"></div>
+      <div style="display:flex;gap:8px;margin-top:16px;">
+        <button class="btn btn-primary" style="flex:1;" onclick="addSuggestedTasks()">チェックしたタスクを追加</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- AI結果モーダル -->
+  <div class="modal-overlay" id="aiResultModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 id="aiResultTitle">🐷 ピアちゃん</h2>
+        <button class="modal-close" onclick="closeModal('aiResultModal')">&times;</button>
+      </div>
+      <div class="pia-comment" style="margin-bottom:16px;">
+        <img src="/pia-happy.png" alt="ピアちゃん" class="pia-icon-sm" onerror="this.src='/icon-pia.png'">
+        <div class="pia-bubble" id="aiResultContent"></div>
+      </div>
+      <div id="aiResultExtra"></div>
+    </div>
+  </div>
+
+  <!-- タスク選択モーダル（分解用） -->
+  <div class="modal-overlay" id="subdivideSelectModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>✂️ 分解するタスクを選択</h2>
+        <button class="modal-close" onclick="closeModal('subdivideSelectModal')">&times;</button>
+      </div>
+      <div id="subdivideTaskList"></div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="/app.js"></script>
+  <script src="/project-detail.js"></script>
+</body>
+</html>

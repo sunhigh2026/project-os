@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#F0FAF6">
+  <title>設定 - Project OS</title>
+  <link rel="stylesheet" href="/style.css">
+  <link rel="icon" href="/icon-pia.png">
+  <link rel="manifest" href="/manifest.json">
+</head>
+<body>
+  <div class="app-wrapper">
+    <div style="padding:16px;">
+      <h2 style="margin-bottom:16px;">⚙️ 設定</h2>
+
+      <!-- API設定 -->
+      <div class="card section" style="margin-bottom:16px;">
+        <h2 style="margin-bottom:12px;">🔑 API設定</h2>
+        <div class="form-group">
+          <label>Gemini APIキー</label>
+          <input type="password" id="geminiKey" placeholder="AIxxxxxx...">
+          <div id="geminiKeyStatus" style="font-size:11px;color:var(--text-sub);margin-top:4px;"></div>
+        </div>
+        <div class="form-group">
+          <label>GitHubトークン</label>
+          <input type="password" id="githubToken" placeholder="ghp_xxxxx...">
+          <div id="githubTokenStatus" style="font-size:11px;color:var(--text-sub);margin-top:4px;"></div>
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="saveApiSettings()">保存</button>
+      </div>
+
+      <!-- キャラクター設定 -->
+      <div class="card section" style="margin-bottom:16px;">
+        <h2 style="margin-bottom:12px;">🐷 ピアちゃん設定</h2>
+        <div class="form-group">
+          <label>キャラクター名</label>
+          <input type="text" id="charName" value="ピアちゃん">
+        </div>
+        <div class="form-group">
+          <label>キャラクタープロンプト</label>
+          <textarea id="charPrompt" rows="4"></textarea>
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="saveCharSettings()">保存</button>
+      </div>
+
+      <!-- 繰り返しタスク -->
+      <div class="card section" style="margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+          <h2>🔁 繰り返しタスク</h2>
+          <button class="btn btn-sm btn-secondary" onclick="openModal('recurringModal')">+ 追加</button>
+        </div>
+        <div id="recurringList">
+          <div class="loading"><div class="spinner"></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 繰り返しタスク追加モーダル -->
+  <div class="modal-overlay" id="recurringModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>繰り返しタスク追加</h2>
+        <button class="modal-close" onclick="closeModal('recurringModal')">&times;</button>
+      </div>
+      <div class="form-group">
+        <label>タスク名</label>
+        <input type="text" id="recurText" placeholder="例: 進捗確認">
+      </div>
+      <div class="form-group">
+        <label>頻度</label>
+        <select id="recurFreq" onchange="onFreqChange()">
+          <option value="daily">毎日</option>
+          <option value="weekly">毎週</option>
+          <option value="monthly">毎月</option>
+        </select>
+      </div>
+      <div class="form-group" id="weekdayGroup" style="display:none;">
+        <label>曜日</label>
+        <select id="recurWeekday">
+          <option value="0">日曜</option>
+          <option value="1">月曜</option>
+          <option value="2">火曜</option>
+          <option value="3">水曜</option>
+          <option value="4">木曜</option>
+          <option value="5">金曜</option>
+          <option value="6">土曜</option>
+        </select>
+      </div>
+      <div class="form-group" id="monthdayGroup" style="display:none;">
+        <label>日</label>
+        <input type="number" id="recurMonthday" min="1" max="31" placeholder="1">
+      </div>
+      <div class="form-group">
+        <label>プロジェクト（任意）</label>
+        <select id="recurProject">
+          <option value="">グローバル（全体）</option>
+        </select>
+      </div>
+      <button class="btn btn-primary" style="width:100%;margin-top:8px;" onclick="addRecurring()">追加</button>
+    </div>
+  </div>
+
+  <!-- Tab Bar -->
+  <nav class="tab-bar">
+    <div class="tab-bar-inner">
+      <a href="/" class="tab-item">
+        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        <span>ホーム</span>
+      </a>
+      <a href="/projects.html" class="tab-item">
+        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>
+        <span>プロジェクト</span>
+      </a>
+      <a href="/gantt.html" class="tab-item">
+        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18"/><path d="M13 8h4"/><path d="M13 12h2"/><path d="M13 16h5"/></svg>
+        <span>ガント</span>
+      </a>
+      <a href="/settings.html" class="tab-item active">
+        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+        <span>設定</span>
+      </a>
+    </div>
+  </nav>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="/app.js"></script>
+  <script src="/settings.js"></script>
+</body>
+</html>
