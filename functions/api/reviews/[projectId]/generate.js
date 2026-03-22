@@ -71,7 +71,7 @@ ${notes.length ? `ノート:\n${notes.map(n => `- [${n.type}] ${n.title}: ${n.co
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           contents: [{ role: 'user', parts: [{ text: prompt }] }],
-          generationConfig: { temperature: 0.6, maxOutputTokens: 2048 },
+          generationConfig: { temperature: 0.6, maxOutputTokens: 2048, responseMimeType: 'application/json' },
         }),
       }
     );

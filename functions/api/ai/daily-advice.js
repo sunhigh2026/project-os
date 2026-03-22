@@ -74,7 +74,7 @@ ${doingTasks.map(t => `- [${t.project_name}] ${t.text}`).join('\n') || 'なし'}
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           contents: [{ role: 'user', parts: [{ text: prompt }] }],
-          generationConfig: { temperature: 0.7, maxOutputTokens: 512 },
+          generationConfig: { temperature: 0.7, maxOutputTokens: 512, responseMimeType: 'application/json' },
         }),
       }
     );

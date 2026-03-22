@@ -96,7 +96,7 @@ ${learningsContext}
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           contents: [{ role: 'user', parts: [{ text: prompt }] }],
-          generationConfig: { temperature: 0.5, maxOutputTokens: 4096 },
+          generationConfig: { temperature: 0.5, maxOutputTokens: 4096, responseMimeType: 'application/json' },
         }),
       }
     );
