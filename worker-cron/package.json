@@ -1,0 +1,10 @@
+{
+  "name": "project-os-cron",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "trigger": "curl -X POST http://localhost:8787/trigger"
+  }
+}

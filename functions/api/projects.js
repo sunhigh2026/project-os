@@ -34,17 +34,18 @@ export async function onRequestGet({ request, env }) {
 // POST /api/projects — 新規作成
 export async function onRequestPost({ request, env }) {
   const body = await request.json();
-  const { name, description, type, goal_date, daily_minutes, github_repo, color } = body;
+  const { name, description, type, goal_date, daily_minutes, github_repo, color, tags } = body;
 
   if (!name) return json({ error: 'name required' }, 400);
 
   const id = crypto.randomUUID();
   const now = new Date().toISOString();
+  const tagsStr = Array.isArray(tags) ? JSON.stringify(tags) : null;
 
   await env.DB.prepare(`
-    INSERT INTO projects (id, name, description, type, goal_date, daily_minutes, github_repo, status, color, created_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, 'active', ?, ?)
-  `).bind(id, name, description || null, type || 'project', goal_date || null, daily_minutes || null, github_repo || null, color || '#7EC8B0', now).run();
+    INSERT INTO projects (id, name, description, type, goal_date, daily_minutes, github_repo, status, color, tags, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?)
+  `).bind(id, name, description || null, type || 'project', goal_date || null, daily_minutes || null, github_repo || null, color || '#7EC8B0', tagsStr, now).run();
 
   return json({ id, name, status: 'active' }, 201);
 }

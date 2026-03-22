@@ -109,34 +109,55 @@ ${isStudy ? `- 1日の学習時間${project.daily_minutes || 30}分を考慮` : 
       responseText = parts.map(p => p.text || '').join('');
     }
 
-    // JSON解析: 直接パース → extractJSON フォールバック
+    // JSON解析: BOM除去 + trim + 直接パース → extractJSON フォールバック
+    responseText = responseText.replace(/^\uFEFF/, '').trim();
+
     let parsed = null;
-    try { parsed = JSON.parse(responseText); } catch (_) {}
+    let parseError = '';
+    try { parsed = JSON.parse(responseText); } catch (e) { parseError = e.message; }
     if (!parsed) parsed = extractJSON(responseText);
 
-    if (parsed && parsed.schedule && parsed.schedule.length > 0) {
-      // task_idマッチング: 順序ベースでフォールバック
+    if (!parsed) {
+      return json({ schedule: [], pia_comment: `JSONの解析に失敗したよ〜（${parseError || 'unknown'}）` });
+    }
+
+    // schedule が直接配列の場合もラップ
+    if (Array.isArray(parsed)) {
+      parsed = { schedule: parsed, pia_comment: '' };
+    }
+
+    if (parsed.schedule && parsed.schedule.length > 0) {
+      // task_idマッチング: 複数段階でフォールバック
+      const usedTaskIds = new Set();
       const validSchedule = parsed.schedule.map((s, idx) => {
+        let matchedTask = null;
         // 1. 完全一致
-        let matchedTask = tasks.find(t => t.id === s.task_id);
+        matchedTask = tasks.find(t => t.id === s.task_id && !usedTaskIds.has(t.id));
         // 2. 部分一致（Geminiが短縮IDを返す場合）
         if (!matchedTask && s.task_id) {
-          matchedTask = tasks.find(t => t.id.startsWith(s.task_id) || s.task_id.startsWith(t.id));
+          matchedTask = tasks.find(t => !usedTaskIds.has(t.id) && (t.id.startsWith(s.task_id) || s.task_id.startsWith(t.id)));
         }
-        // 3. テキスト部分一致
-        if (!matchedTask && s.text) {
-          matchedTask = tasks.find(t => t.text === s.text || t.text.includes(s.text) || s.text.includes(t.text));
+        // 3. テキスト部分一致（task_nameやtextフィールド）
+        if (!matchedTask) {
+          const sText = s.text || s.task_name || '';
+          if (sText) {
+            matchedTask = tasks.find(t => !usedTaskIds.has(t.id) && (t.text === sText || t.text.includes(sText) || sText.includes(t.text)));
+          }
         }
         // 4. 順序ベース（同数なら順番で割り当て）
         if (!matchedTask && idx < tasks.length) {
-          matchedTask = tasks[idx];
+          matchedTask = tasks.filter(t => !usedTaskIds.has(t.id))[0] || tasks[idx];
         }
-        return matchedTask ? {
-          task_id: matchedTask.id,
-          due_start: s.due_start,
-          due_end: s.due_end,
-          duration_days: s.duration_days,
-        } : null;
+        if (matchedTask) {
+          usedTaskIds.add(matchedTask.id);
+          return {
+            task_id: matchedTask.id,
+            due_start: s.due_start,
+            due_end: s.due_end,
+            duration_days: s.duration_days,
+          };
+        }
+        return null;
       }).filter(Boolean);
 
       if (validSchedule.length > 0) {
@@ -147,7 +168,7 @@ ${isStudy ? `- 1日の学習時間${project.daily_minutes || 30}分を考慮` : 
       }
     }
 
-    return json({ schedule: [], pia_comment: `スケジュールの解析ができなかったよ〜` });
+    return json({ schedule: [], pia_comment: `スケジュールの解析ができなかったよ〜（items: ${parsed.schedule?.length || 0}）` });
   } catch (e) {
     return json({ schedule: [], pia_comment: 'AIがうまく動かなかったよ〜' });
   }

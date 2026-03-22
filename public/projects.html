@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#F0FAF6">
   <title>プロジェクト - Project OS</title>
   <link rel="stylesheet" href="/style.css">
-  <link rel="icon" href="/icon-pia.png">
+  <link rel="icon" href="/icon-pia-glasses.png">
   <link rel="manifest" href="/manifest.json">
 </head>
 <body>
@@ -21,6 +21,9 @@
         <button class="filter-btn" data-status="paused" onclick="filterProjects('paused', this)">休止</button>
         <button class="filter-btn" data-status="" onclick="filterProjects('', this)">すべて</button>
       </div>
+
+      <!-- タグフィルタ -->
+      <div class="tags-filter" id="tagsFilter" style="display:none;"></div>
 
       <!-- プロジェクトリスト -->
       <div id="projectList" style="display:flex;flex-direction:column;gap:12px;">
@@ -71,6 +74,14 @@
       <div class="form-group">
         <label>GitHubリポジトリ（任意）</label>
         <input type="text" id="createGithubRepo" placeholder="owner/repo">
+      </div>
+
+      <div class="form-group">
+        <label>タグ</label>
+        <div class="tag-input-container" id="createTagContainer" onclick="document.getElementById('createTagInput').focus()">
+          <input type="text" id="createTagInput" placeholder="タグを入力..." onkeydown="handleCreateTagKeydown(event)" oninput="showCreateTagSuggestions()">
+        </div>
+        <div class="tag-suggestions" id="createTagSuggestions" style="display:none;"></div>
       </div>
 
       <div class="form-group">

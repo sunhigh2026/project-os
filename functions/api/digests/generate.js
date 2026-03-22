@@ -49,7 +49,13 @@ async function fetchGitHub(url, token) {
 }
 
 // POST /api/digests/generate
-export async function onRequestPost({ env }) {
+export async function onRequestPost({ request, env }) {
+  let force = false;
+  try {
+    const body = await request.json();
+    force = body?.force === true;
+  } catch (_) {}
+
   const now = new Date();
   const jst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
 
@@ -70,7 +76,10 @@ export async function onRequestPost({ env }) {
   const existing = await env.DB.prepare(
     'SELECT id FROM weekly_digests WHERE week_start = ?'
   ).bind(weekStart).first();
-  if (existing) return json({ error: 'この週のダイジェストは既に生成済みです', digest_id: existing.id }, 409);
+  if (existing && !force) return json({ error: 'この週のダイジェストは既に生成済みです', digest_id: existing.id }, 409);
+  if (existing && force) {
+    await env.DB.prepare('DELETE FROM weekly_digests WHERE id = ?').bind(existing.id).run();
+  }
 
   // ========== 1. Gather base counts ==========
   const completed = await env.DB.prepare(
@@ -393,7 +402,7 @@ ${comparisonText}
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             contents: [{ role: 'user', parts: [{ text: prompt }] }],
-            generationConfig: { temperature: 0.7, maxOutputTokens: 1024, responseMimeType: 'application/json' },
+            generationConfig: { temperature: 0.7, maxOutputTokens: 2048, responseMimeType: 'application/json' },
           }),
         }
       );
@@ -402,8 +411,10 @@ ${comparisonText}
         const data = await res.json();
         const parts = data.candidates?.[0]?.content?.parts || [];
         const nonThought = parts.filter(p => p.text !== undefined && p.thought !== true);
-        const text = (nonThought.length > 0 ? nonThought : parts).map(p => p.text || '').join('');
-        const parsed = extractJSON(text);
+        const text = (nonThought.length > 0 ? nonThought : parts).map(p => p.text || '').join('').replace(/^\uFEFF/, '').trim();
+        let parsed = null;
+        try { parsed = JSON.parse(text); } catch (_) {}
+        if (!parsed) parsed = extractJSON(text);
 
         if (parsed) {
           if (parsed.summary) piaComment = parsed.summary;

@@ -7,6 +7,8 @@ let editPriority = 'mid';
 let suggestedTasks = [];
 let notes = [];
 let currentNoteFilter = 'all';
+let editTags = [];
+const PRESET_TAGS = ["Androidアプリ", "Webアプリ", "Chrome拡張", "iOSアプリ", "ゲーム", "ツール", "ライブラリ", "資格勉強", "語学学習", "読書", "ブログ"];
 
 // ==============================
 // 初期化
@@ -66,6 +68,16 @@ function renderProject() {
     const desc = document.getElementById('projectDesc');
     desc.textContent = project.description;
     desc.style.display = '';
+  }
+
+  // Render tags
+  const tags = parseTags(project.tags);
+  const tagsEl = document.getElementById('projectTags');
+  if (tags.length) {
+    tagsEl.style.display = '';
+    tagsEl.innerHTML = tags.map(t => `<span class="tag-badge">${escHtml(t)}</span>`).join('');
+  } else {
+    tagsEl.style.display = 'none';
   }
 
   const total = tasks.length;
@@ -270,6 +282,73 @@ async function deleteTask() {
 }
 
 // ==============================
+// タグ関連
+// ==============================
+function parseTags(tags) {
+  if (!tags) return [];
+  if (Array.isArray(tags)) return tags;
+  try { return JSON.parse(tags); } catch { return []; }
+}
+
+function renderEditTags() {
+  const container = document.getElementById('editTagContainer');
+  const input = document.getElementById('editTagInput');
+  const badges = container.querySelectorAll('.tag-badge');
+  badges.forEach(b => b.remove());
+  editTags.forEach((tag, i) => {
+    const badge = document.createElement('span');
+    badge.className = 'tag-badge';
+    badge.innerHTML = `${escHtml(tag)}<span class="remove-tag" onclick="removeEditTag(${i}, event)">&times;</span>`;
+    container.insertBefore(badge, input);
+  });
+}
+
+function addEditTag(tag) {
+  tag = tag.trim();
+  if (!tag || editTags.includes(tag)) return;
+  editTags.push(tag);
+  renderEditTags();
+  document.getElementById('editTagInput').value = '';
+  hideEditTagSuggestions();
+}
+
+function removeEditTag(index, event) {
+  event.stopPropagation();
+  editTags.splice(index, 1);
+  renderEditTags();
+}
+
+function handleEditTagKeydown(event) {
+  const input = document.getElementById('editTagInput');
+  if ((event.key === 'Enter' || event.key === ',') && input.value.trim()) {
+    event.preventDefault();
+    addEditTag(input.value.replace(',', ''));
+  }
+  if (event.key === 'Backspace' && !input.value && editTags.length) {
+    editTags.pop();
+    renderEditTags();
+  }
+}
+
+function showEditTagSuggestions() {
+  const input = document.getElementById('editTagInput');
+  const sugEl = document.getElementById('editTagSuggestions');
+  const val = input.value.trim().toLowerCase();
+  const filtered = PRESET_TAGS.filter(t => !editTags.includes(t) && (!val || t.toLowerCase().includes(val)));
+  if (!filtered.length) { sugEl.style.display = 'none'; return; }
+  sugEl.style.display = '';
+  sugEl.innerHTML = filtered.map(t => `<div onclick="addEditTag('${escHtml(t)}')">${escHtml(t)}</div>`).join('');
+}
+
+function hideEditTagSuggestions() {
+  document.getElementById('editTagSuggestions').style.display = 'none';
+}
+
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('#editTagContainer') && !e.target.closest('#editTagSuggestions')) hideEditTagSuggestions();
+});
+
+// ==============================
 // プロジェクト編集
 // ==============================
 function openEditProject() {
@@ -278,6 +357,8 @@ function openEditProject() {
   document.getElementById('editProjectGoalDate').value = project.goal_date || '';
   document.getElementById('editProjectGithub').value = project.github_repo || '';
   document.getElementById('editProjectStatus').value = project.status;
+  editTags = parseTags(project.tags).slice();
+  renderEditTags();
   openModal('editProjectModal');
 }
 
@@ -291,6 +372,7 @@ async function saveProject() {
     goal_date: document.getElementById('editProjectGoalDate').value || null,
     github_repo: document.getElementById('editProjectGithub').value.trim() || null,
     status: newStatus,
+    tags: editTags.length ? editTags : null,
   };
 
   try {
