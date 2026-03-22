@@ -12,14 +12,24 @@ async function getGeminiKey(env) {
 }
 
 function extractJSON(text) {
-  const codeBlock = text.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
-  if (codeBlock) {
-    try { return JSON.parse(codeBlock[1].trim()); } catch (_) {}
+  // 方法1: ```json ... ``` コードブロック（貪欲マッチ）
+  const codeBlocks = [...text.matchAll(/```(?:json)?\s*\n?([\s\S]*?)\n?\s*```/g)];
+  for (const match of codeBlocks) {
+    try { return JSON.parse(match[1].trim()); } catch (_) {}
   }
+  // 方法2: 最も外側の { ... }
   const start = text.indexOf('{');
   const end = text.lastIndexOf('}');
   if (start !== -1 && end > start) {
     try { return JSON.parse(text.slice(start, end + 1)); } catch (_) {}
+  }
+  // 方法3: schedule配列を直接探す
+  const scheduleMatch = text.match(/\[\s*\{[\s\S]*?"task_id"[\s\S]*?\}\s*\]/);
+  if (scheduleMatch) {
+    try {
+      const arr = JSON.parse(scheduleMatch[0]);
+      return { schedule: arr, pia_comment: '' };
+    } catch (_) {}
   }
   return null;
 }
@@ -87,18 +97,49 @@ ${isStudy ? `- 1日の学習時間${project.daily_minutes || 30}分を考慮` : 
 
     const data = await res.json();
     const parts = data.candidates?.[0]?.content?.parts || [];
-    const nonThought = parts.filter(p => p.text !== undefined && p.thought !== true);
-    const responseText = (nonThought.length > 0 ? nonThought : parts).map(p => p.text || '').join('');
+
+    // Gemini 2.5 Flash: thoughtパーツを除外して本文テキストを取得
+    let responseText = '';
+    for (const p of parts) {
+      if (p.thought === true) continue; // thinking部分をスキップ
+      if (p.text) responseText += p.text;
+    }
+    // fallback: 全パーツからテキスト取得
+    if (!responseText.trim()) {
+      responseText = parts.map(p => p.text || '').join('');
+    }
 
     const parsed = extractJSON(responseText);
     if (parsed && parsed.schedule && parsed.schedule.length > 0) {
-      return json({
-        schedule: parsed.schedule,
-        pia_comment: parsed.pia_comment || 'スケジュール組んだよ〜！',
-      });
+      // task_idがマッチするか検証（Geminiが短縮IDを返す場合の対応）
+      const validSchedule = parsed.schedule.map(s => {
+        // IDが完全一致しない場合、部分一致で探す
+        let matchedTask = tasks.find(t => t.id === s.task_id);
+        if (!matchedTask) {
+          matchedTask = tasks.find(t => t.id.startsWith(s.task_id) || s.task_id.startsWith(t.id));
+        }
+        if (!matchedTask) {
+          // テキストマッチでフォールバック
+          matchedTask = tasks.find(t => s.text && t.text.includes(s.text));
+        }
+        return matchedTask ? {
+          task_id: matchedTask.id,
+          due_start: s.due_start,
+          due_end: s.due_end,
+          duration_days: s.duration_days,
+        } : null;
+      }).filter(Boolean);
+
+      if (validSchedule.length > 0) {
+        return json({
+          schedule: validSchedule,
+          pia_comment: parsed.pia_comment || 'スケジュール組んだよ〜！',
+        });
+      }
     }
 
-    return json({ schedule: [], pia_comment: 'スケジュールの解析ができなかったよ〜' });
+    // デバッグ用: レスポンスの一部を返す
+    return json({ schedule: [], pia_comment: `スケジュールの解析ができなかったよ〜（${responseText.slice(0, 50)}...）` });
   } catch (e) {
     return json({ schedule: [], pia_comment: 'AIがうまく動かなかったよ〜' });
   }
