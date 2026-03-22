@@ -109,18 +109,27 @@ ${isStudy ? `- 1日の学習時間${project.daily_minutes || 30}分を考慮` : 
       responseText = parts.map(p => p.text || '').join('');
     }
 
-    const parsed = extractJSON(responseText);
+    // JSON解析: 直接パース → extractJSON フォールバック
+    let parsed = null;
+    try { parsed = JSON.parse(responseText); } catch (_) {}
+    if (!parsed) parsed = extractJSON(responseText);
+
     if (parsed && parsed.schedule && parsed.schedule.length > 0) {
-      // task_idがマッチするか検証（Geminiが短縮IDを返す場合の対応）
-      const validSchedule = parsed.schedule.map(s => {
-        // IDが完全一致しない場合、部分一致で探す
+      // task_idマッチング: 順序ベースでフォールバック
+      const validSchedule = parsed.schedule.map((s, idx) => {
+        // 1. 完全一致
         let matchedTask = tasks.find(t => t.id === s.task_id);
-        if (!matchedTask) {
+        // 2. 部分一致（Geminiが短縮IDを返す場合）
+        if (!matchedTask && s.task_id) {
           matchedTask = tasks.find(t => t.id.startsWith(s.task_id) || s.task_id.startsWith(t.id));
         }
-        if (!matchedTask) {
-          // テキストマッチでフォールバック
-          matchedTask = tasks.find(t => s.text && t.text.includes(s.text));
+        // 3. テキスト部分一致
+        if (!matchedTask && s.text) {
+          matchedTask = tasks.find(t => t.text === s.text || t.text.includes(s.text) || s.text.includes(t.text));
+        }
+        // 4. 順序ベース（同数なら順番で割り当て）
+        if (!matchedTask && idx < tasks.length) {
+          matchedTask = tasks[idx];
         }
         return matchedTask ? {
           task_id: matchedTask.id,
@@ -138,8 +147,7 @@ ${isStudy ? `- 1日の学習時間${project.daily_minutes || 30}分を考慮` : 
       }
     }
 
-    // デバッグ用: レスポンスの一部を返す
-    return json({ schedule: [], pia_comment: `スケジュールの解析ができなかったよ〜（${responseText.slice(0, 50)}...）` });
+    return json({ schedule: [], pia_comment: `スケジュールの解析ができなかったよ〜` });
   } catch (e) {
     return json({ schedule: [], pia_comment: 'AIがうまく動かなかったよ〜' });
   }
