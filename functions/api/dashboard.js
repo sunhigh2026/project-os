@@ -42,24 +42,26 @@ export async function onRequestGet({ env }) {
   `).all();
 
   // まなぶプロジェクトの今日の学習時間（study_sessions）
-  const { results: studyToday } = await env.DB.prepare(`
-    SELECT project_id, SUM(duration_minutes) as minutes
-    FROM study_sessions
-    WHERE date = ? AND duration_minutes IS NOT NULL
-    GROUP BY project_id
-  `).bind(today).all();
   const studyTodayMap = {};
-  for (const s of studyToday) studyTodayMap[s.project_id] = s.minutes || 0;
+  try {
+    const { results: studyToday } = await env.DB.prepare(`
+      SELECT project_id, SUM(duration_minutes) as minutes
+      FROM study_sessions
+      WHERE date = ? AND duration_minutes IS NOT NULL
+      GROUP BY project_id
+    `).bind(today).all();
+    for (const s of studyToday) studyTodayMap[s.project_id] = s.minutes || 0;
 
-  // アクティブな計測中セッションの経過時間も加算
-  const { results: activeSessions } = await env.DB.prepare(`
-    SELECT project_id, started_at FROM study_sessions
-    WHERE date = ? AND ended_at IS NULL
-  `).bind(today).all();
-  for (const s of activeSessions) {
-    const elapsed = Math.floor((now.getTime() - new Date(s.started_at).getTime()) / 60000);
-    studyTodayMap[s.project_id] = (studyTodayMap[s.project_id] || 0) + Math.max(0, elapsed);
-  }
+    // アクティブな計測中セッションの経過時間も加算
+    const { results: activeSessions } = await env.DB.prepare(`
+      SELECT project_id, started_at FROM study_sessions
+      WHERE date = ? AND ended_at IS NULL
+    `).bind(today).all();
+    for (const s of activeSessions) {
+      const elapsed = Math.floor((now.getTime() - new Date(s.started_at).getTime()) / 60000);
+      studyTodayMap[s.project_id] = (studyTodayMap[s.project_id] || 0) + Math.max(0, elapsed);
+    }
+  } catch (_) {}
 
   // プロジェクトに学習時間を付与
   for (const p of projects) {
