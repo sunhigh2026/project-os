@@ -7,6 +7,7 @@ let editPriority = 'mid';
 let suggestedTasks = [];
 let notes = [];
 let currentNoteFilter = 'all';
+let currentTaskFilter = 'all'; // all / open / review / done
 let editTags = [];
 const PRESET_TAGS = ["Androidアプリ", "Webアプリ", "Chrome拡張", "iOSアプリ", "ゲーム", "ツール", "ライブラリ", "資格勉強", "語学学習", "読書", "ブログ"];
 
@@ -40,9 +41,11 @@ async function loadProject(id) {
       loadGithub();
     }
 
-    // 学習時間セクション
+    // 学習時間セクション + ストップウォッチ
     if (project.type === 'study') {
+      document.getElementById('stopwatchSection').style.display = '';
       document.getElementById('studyTimeSection').style.display = '';
+      initStopwatch();
       loadStudyStats();
     }
 
@@ -97,9 +100,18 @@ function renderProject() {
 }
 
 function renderTasks() {
-  const open = tasks.filter(t => t.status === 'open');
-  const doing = tasks.filter(t => t.status === 'doing');
-  const done = tasks.filter(t => t.status === 'done');
+  let filtered = tasks;
+  if (currentTaskFilter === 'open') {
+    filtered = tasks.filter(t => t.status !== 'done');
+  } else if (currentTaskFilter === 'review') {
+    filtered = tasks.filter(t => t.review_flag);
+  } else if (currentTaskFilter === 'done') {
+    filtered = tasks.filter(t => t.status === 'done');
+  }
+
+  const open = filtered.filter(t => t.status === 'open');
+  const doing = filtered.filter(t => t.status === 'doing');
+  const done = filtered.filter(t => t.status === 'done');
 
   document.getElementById('openCount').textContent = open.length ? `${open.length}件` : '';
   document.getElementById('doingCount').textContent = doing.length ? `${doing.length}件` : '';
@@ -135,6 +147,7 @@ function renderTaskGroup(taskList, groupStatus) {
     }
     if (t.score != null) metaParts.push(`<span>📊 ${t.score}点</span>`);
     if (overdue) metaParts.push(`<span style="color:var(--accent-red);">期限超過</span>`);
+    if (t.review_flag) metaParts.push(`<span style="color:#E8A0BF;">🔄 要復習</span>`);
     if (metaParts.length) metaHtml = `<div class="task-meta${overdue ? ' overdue' : ''}">${metaParts.join('')}</div>`;
 
     let memoHtml = '';
@@ -142,6 +155,11 @@ function renderTaskGroup(taskList, groupStatus) {
       const short = t.memo.length > 40 ? t.memo.slice(0, 40) + '...' : t.memo;
       memoHtml = `<div style="font-size:11px;color:var(--text-sub);margin-top:2px;">💬 ${linkify(escHtml(short))}</div>`;
     }
+
+    // 復習フラグボタン（完了タスクのみ）
+    const reviewBtn = t.status === 'done'
+      ? `<div class="review-toggle ${t.review_flag ? 'active' : ''}" onclick="event.stopPropagation();toggleReview('${t.id}')" title="${t.review_flag ? '復習済み' : '要復習にする'}">🔄</div>`
+      : '';
 
     return `
       <div class="task-item" ${overdue ? 'style="background:rgba(252,165,165,0.08);"' : ''}>
@@ -152,6 +170,7 @@ function renderTaskGroup(taskList, groupStatus) {
           ${metaHtml}
           ${memoHtml}
         </div>
+        ${reviewBtn}
       </div>
     `;
   }).join('');
@@ -177,6 +196,31 @@ async function cycleStatus(taskId, newStatus) {
   } catch (e) {
     showToast(`エラー: ${e.message}`);
   }
+}
+
+// ==============================
+// 復習フラグ切替
+// ==============================
+async function toggleReview(taskId) {
+  try {
+    const data = await apiFetch(`/api/tasks/${taskId}/review`, { method: 'PATCH' });
+    const task = tasks.find(t => t.id === taskId);
+    if (task) task.review_flag = data.review_flag;
+    renderTasks();
+    showToast(data.review_flag ? '🔄 要復習に設定' : '復習フラグを解除');
+  } catch (e) {
+    showToast(`エラー: ${e.message}`);
+  }
+}
+
+// ==============================
+// タスクフィルタ
+// ==============================
+function filterTasks(filter, btn) {
+  currentTaskFilter = filter;
+  document.querySelectorAll('.task-filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderTasks();
 }
 
 // ==============================
@@ -359,6 +403,16 @@ function openEditProject() {
   document.getElementById('editProjectStatus').value = project.status;
   editTags = parseTags(project.tags).slice();
   renderEditTags();
+
+  // 目標総学習時間（studyタイプのみ表示）
+  const goalHoursGroup = document.getElementById('editGoalHoursGroup');
+  if (project.type === 'study') {
+    goalHoursGroup.style.display = '';
+    document.getElementById('editTotalGoalHours').value = project.total_goal_hours || '';
+  } else {
+    goalHoursGroup.style.display = 'none';
+  }
+
   openModal('editProjectModal');
 }
 
@@ -374,6 +428,11 @@ async function saveProject() {
     status: newStatus,
     tags: editTags.length ? editTags : null,
   };
+
+  if (project.type === 'study') {
+    const goalHours = parseFloat(document.getElementById('editTotalGoalHours').value);
+    body.total_goal_hours = goalHours > 0 ? goalHours : null;
+  }
 
   try {
     await apiFetch(`/api/projects/${project.id}`, {
@@ -763,6 +822,195 @@ async function generateReview() {
 }
 
 // ==============================
+// まとめて追加
+// ==============================
+async function submitBulkAdd() {
+  const textarea = document.getElementById('bulkAddText');
+  const text = textarea.value.trim();
+  if (!text) { showToast('テキストを入力してください'); return; }
+
+  try {
+    const data = await apiFetch(`/api/projects/${project.id}/tasks/bulk-text`, {
+      method: 'POST',
+      body: JSON.stringify({ text }),
+    });
+    showToast(`📋 ${data.count}件のタスクを追加しました！`);
+    textarea.value = '';
+    closeModal('bulkAddModal');
+    const taskData = await apiFetch(`/api/projects/${project.id}/tasks`);
+    tasks = taskData.tasks;
+    renderProject();
+    renderTasks();
+  } catch (e) {
+    showToast(`エラー: ${e.message}`);
+  }
+}
+
+function aiBulkGenerate() {
+  const promptArea = document.getElementById('bulkAddAiPrompt');
+  promptArea.style.display = promptArea.style.display === 'none' ? '' : 'none';
+  document.getElementById('bulkAiInput').focus();
+}
+
+async function runAiBulkGenerate() {
+  const prompt = document.getElementById('bulkAiInput').value.trim();
+  if (!prompt) { showToast('プロンプトを入力してください'); return; }
+
+  showToast('🐷 ピアちゃんが考え中...');
+  try {
+    const data = await apiFetch('/api/ai/bulk-suggest', {
+      method: 'POST',
+      body: JSON.stringify({
+        project_name: project.name,
+        project_type: project.type,
+        prompt,
+      }),
+    });
+    if (data.tasks_text) {
+      document.getElementById('bulkAddText').value = data.tasks_text;
+      document.getElementById('bulkAddAiPrompt').style.display = 'none';
+      showToast('生成完了！内容を確認してから追加してね');
+    }
+  } catch (e) {
+    showToast(`エラー: ${e.message}`);
+  }
+}
+
+// ==============================
+// ストップウォッチ
+// ==============================
+let stopwatchInterval = null;
+let activeSession = null;
+
+async function initStopwatch() {
+  try {
+    // タグ一覧を読み込み
+    loadStudyTags();
+
+    const data = await apiFetch('/api/study/active');
+    if (data.session && data.session.project_id === project.id) {
+      activeSession = data.session;
+      startStopwatchDisplay();
+    } else {
+      activeSession = null;
+      updateStopwatchIdle();
+    }
+  } catch (_) {
+    updateStopwatchIdle();
+  }
+}
+
+async function loadStudyTags() {
+  try {
+    const data = await apiFetch(`/api/study/${project.id}/tags`);
+    const select = document.getElementById('stopwatchTagSelect');
+    select.innerHTML = '<option value="">なし</option>' +
+      (data.tags || []).map(t => `<option value="${escHtml(t)}">${escHtml(t)}</option>`).join('');
+  } catch (_) {}
+}
+
+function promptNewTag() {
+  const tag = prompt('新しいタグ名:');
+  if (!tag || !tag.trim()) return;
+  const select = document.getElementById('stopwatchTagSelect');
+  const opt = document.createElement('option');
+  opt.value = tag.trim();
+  opt.textContent = tag.trim();
+  select.appendChild(opt);
+  select.value = tag.trim();
+}
+
+async function updateStopwatchIdle() {
+  // 今日の学習時間を取得
+  try {
+    const data = await apiFetch(`/api/study/${project.id}/today`);
+    const goalMin = project.daily_minutes || 0;
+    const todayMin = data.minutes || 0;
+    const summaryEl = document.getElementById('stopwatchTodaySummary');
+    if (goalMin > 0) {
+      summaryEl.textContent = `⏱ 今日の学習時間: ${todayMin}分 / 目標${goalMin}分`;
+    } else {
+      summaryEl.textContent = `⏱ 今日の学習時間: ${todayMin}分`;
+    }
+  } catch (_) {}
+
+  document.getElementById('stopwatchTime').textContent = '⏱ 00:00:00';
+  document.getElementById('stopwatchStatus').textContent = '';
+  document.getElementById('stopwatchBtn').textContent = '▶ スタート';
+  document.getElementById('stopwatchBtn').className = 'btn btn-primary';
+}
+
+function startStopwatchDisplay() {
+  if (stopwatchInterval) clearInterval(stopwatchInterval);
+  document.getElementById('stopwatchBtn').textContent = '⏹ ストップ';
+  document.getElementById('stopwatchBtn').className = 'btn btn-danger';
+  document.getElementById('stopwatchStatus').textContent = '計測中...';
+
+  const updateDisplay = () => {
+    if (!activeSession) return;
+    const elapsed = Math.floor((Date.now() - new Date(activeSession.started_at).getTime()) / 1000);
+    const h = String(Math.floor(elapsed / 3600)).padStart(2, '0');
+    const m = String(Math.floor((elapsed % 3600) / 60)).padStart(2, '0');
+    const s = String(elapsed % 60).padStart(2, '0');
+    document.getElementById('stopwatchTime').textContent = `⏱ ${h}:${m}:${s}`;
+  };
+
+  updateDisplay();
+  stopwatchInterval = setInterval(updateDisplay, 1000);
+
+  // 今日の合計も更新
+  updateStopwatchTodaySummary();
+}
+
+async function updateStopwatchTodaySummary() {
+  try {
+    const data = await apiFetch(`/api/study/${project.id}/today`);
+    const goalMin = project.daily_minutes || 0;
+    const todayMin = data.minutes || 0;
+    const summaryEl = document.getElementById('stopwatchTodaySummary');
+    if (goalMin > 0) {
+      summaryEl.textContent = `今日の合計: ${todayMin}分 / 目標${goalMin}分`;
+    } else {
+      summaryEl.textContent = `今日の合計: ${todayMin}分`;
+    }
+  } catch (_) {}
+}
+
+async function toggleStopwatch() {
+  if (activeSession) {
+    // 停止
+    try {
+      await apiFetch('/api/study/stop', {
+        method: 'POST',
+        body: JSON.stringify({ session_id: activeSession.id }),
+      });
+      if (stopwatchInterval) clearInterval(stopwatchInterval);
+      stopwatchInterval = null;
+      activeSession = null;
+      showToast('⏹ 学習記録を保存しました');
+      updateStopwatchIdle();
+      loadStudyStats();
+    } catch (e) {
+      showToast(`エラー: ${e.message}`);
+    }
+  } else {
+    // 開始
+    try {
+      const tag = document.getElementById('stopwatchTagSelect')?.value || null;
+      const data = await apiFetch('/api/study/start', {
+        method: 'POST',
+        body: JSON.stringify({ project_id: project.id, tag }),
+      });
+      activeSession = data;
+      showToast('▶ 学習開始！');
+      startStopwatchDisplay();
+    } catch (e) {
+      showToast(`エラー: ${e.message}`);
+    }
+  }
+}
+
+// ==============================
 // 学習時間
 // ==============================
 async function loadStudyStats() {
@@ -774,7 +1022,32 @@ async function loadStudyStats() {
     const goalMin = project.daily_minutes || 60;
     const pct = Math.min(100, Math.round((data.today_minutes / goalMin) * 100));
 
-    let html = `
+    let html = '';
+
+    // 逆算表示（total_goal_hoursが設定されている場合）
+    if (data.pace) {
+      const p = data.pace;
+      const paceLabel = p.pace === 'on_track' ? '順調' : p.pace === 'behind' ? 'やや不足' : '危険';
+      const paceColor = p.pace === 'on_track' ? 'var(--primary-dark)' : p.pace === 'behind' ? '#D97706' : 'var(--accent-red)';
+      const paceIcon = p.pace === 'on_track' ? '✅' : '⚠️';
+      const totalPct = Math.min(100, Math.round((p.total_hours / p.total_goal_hours) * 100));
+
+      html += `
+        <div style="margin-bottom:16px;padding:12px;background:var(--primary-light);border-radius:10px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <span style="font-size:13px;font-weight:700;">累計: ${p.total_hours}h / 目標${p.total_goal_hours}h (${totalPct}%)</span>
+            <span style="font-size:12px;font-weight:600;color:${paceColor};">${paceIcon} ${paceLabel}</span>
+          </div>
+          <div class="progress-bar" style="margin-bottom:8px;"><div class="progress-bar-fill" style="width:${totalPct}%"></div></div>
+          <div style="font-size:11px;color:var(--text-sub);display:flex;justify-content:space-between;">
+            <span>残り: ${p.remaining_hours}h → 1日${p.needed_daily_minutes}分必要</span>
+            <span>現ペース: 1日${p.avg_daily_minutes}分</span>
+          </div>
+        </div>
+      `;
+    }
+
+    html += `
       <div style="display:flex;justify-content:space-around;text-align:center;margin-bottom:16px;">
         <div>
           <div style="font-size:20px;font-weight:700;color:var(--primary-dark);">${fmtTime(data.today_minutes)}</div>
@@ -802,17 +1075,38 @@ async function loadStudyStats() {
       </div>
     `;
 
-    // Daily bar chart (last 14 days)
+    // Daily bar chart (last 14 days) with goal line
     if (data.daily?.length) {
       const maxMin = Math.max(...data.daily.map(d => d.minutes), goalMin);
+      const chartHeight = 80;
+      const goalLinePos = goalMin > 0 ? Math.round((goalMin / maxMin) * chartHeight) : 0;
+
+      // 週間サマリー
+      const weekDays = data.daily.filter(d => d.minutes > 0).length;
+      const achievedDays = goalMin > 0 ? data.daily.filter(d => d.minutes >= goalMin).length : 0;
+      const avgMin = Math.round(data.daily.reduce((s, d) => s + d.minutes, 0) / 14);
+
+      html += `<div style="display:flex;justify-content:space-around;text-align:center;margin-bottom:12px;padding:8px;background:var(--primary-light);border-radius:8px;">
+        <div><div style="font-size:16px;font-weight:700;">${weekDays}</div><div style="font-size:10px;color:var(--text-sub);">学習日</div></div>
+        <div><div style="font-size:16px;font-weight:700;">${fmtTime(avgMin)}</div><div style="font-size:10px;color:var(--text-sub);">平均/日</div></div>
+        ${goalMin > 0 ? `<div><div style="font-size:16px;font-weight:700;">${achievedDays}</div><div style="font-size:10px;color:var(--text-sub);">目標達成</div></div>` : ''}
+      </div>`;
+
       html += '<div style="font-size:12px;font-weight:600;margin-bottom:8px;">📊 直近14日の学習時間</div>';
-      html += '<div style="display:flex;align-items:flex-end;gap:3px;height:80px;">';
+      html += `<div style="position:relative;display:flex;align-items:flex-end;gap:3px;height:${chartHeight}px;">`;
+
+      // 目標ライン
+      if (goalLinePos > 0 && goalLinePos < chartHeight) {
+        html += `<div style="position:absolute;bottom:${goalLinePos}px;left:0;right:0;border-top:1.5px dashed var(--primary-dark);opacity:0.4;z-index:1;"></div>`;
+      }
+
       for (const d of data.daily) {
-        const h = maxMin > 0 ? Math.max(2, (d.minutes / maxMin) * 70) : 2;
-        const label = d.date.slice(5); // MM-DD
+        const h = maxMin > 0 ? Math.max(2, (d.minutes / maxMin) * (chartHeight - 10)) : 2;
         const isToday = d.date === todayJST();
+        const metGoal = goalMin > 0 && d.minutes >= goalMin;
+        const barColor = isToday ? 'var(--primary-dark)' : metGoal ? 'var(--primary)' : (d.minutes > 0 ? 'var(--border)' : 'var(--border)');
         html += `<div style="flex:1;display:flex;flex-direction:column;align-items:center;">
-          <div style="width:100%;height:${h}px;background:${isToday ? 'var(--primary)' : 'var(--primary-light)'};border-radius:3px 3px 0 0;min-width:4px;" title="${label}: ${d.minutes}分"></div>
+          <div style="width:100%;height:${h}px;background:${barColor};border-radius:3px 3px 0 0;min-width:4px;" title="${d.date.slice(5)}: ${d.minutes}分"></div>
         </div>`;
       }
       html += '</div>';
@@ -825,6 +1119,33 @@ async function loadStudyStats() {
     }
 
     el.innerHTML = html;
+
+    // タグ別学習時間
+    loadTagStats(el);
+  } catch (_) {}
+}
+
+async function loadTagStats(parentEl) {
+  try {
+    const data = await apiFetch(`/api/study/${project.id}/tag-stats?days=7`);
+    if (!data.stats || !data.stats.length || data.totalMinutes === 0) return;
+
+    const colors = ['#7EC8B0', '#5BA68A', '#A3D9C8', '#4A9070', '#C8E6D8', '#3D7A5E'];
+    const fmtTime = (m) => m >= 60 ? `${Math.floor(m/60)}h${m%60 ? m%60+'m' : ''}` : `${m}m`;
+
+    let html = '<div style="margin-top:16px;font-size:12px;font-weight:600;margin-bottom:8px;">今週の内訳</div>';
+    data.stats.forEach((s, i) => {
+      const color = colors[i % colors.length];
+      html += `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+        <span style="font-size:11px;color:var(--text-sub);min-width:60px;text-align:right;">${escHtml(s.tag)}</span>
+        <div style="flex:1;height:14px;background:var(--border);border-radius:4px;overflow:hidden;">
+          <div style="height:100%;width:${s.pct}%;background:${color};border-radius:4px;"></div>
+        </div>
+        <span style="font-size:11px;color:var(--text-sub);min-width:50px;">${s.pct}% ${fmtTime(s.minutes)}</span>
+      </div>`;
+    });
+
+    parentEl.innerHTML += html;
   } catch (_) {}
 }
 

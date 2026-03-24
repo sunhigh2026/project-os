@@ -46,6 +46,13 @@
 
     <!-- タスクビュー -->
     <div id="taskView" style="padding:0 16px;">
+      <!-- タスクフィルタ -->
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin:12px 0 0;">
+        <button class="filter-btn task-filter-btn active" onclick="filterTasks('all', this)">すべて</button>
+        <button class="filter-btn task-filter-btn" onclick="filterTasks('open', this)">未完了</button>
+        <button class="filter-btn task-filter-btn" onclick="filterTasks('review', this)">🔄 要復習</button>
+        <button class="filter-btn task-filter-btn" onclick="filterTasks('done', this)">完了</button>
+      </div>
       <!-- やること -->
       <div class="section-header" style="padding:16px 0 8px;">
         <span class="section-title">📋 やること</span>
@@ -81,10 +88,32 @@
       <button class="btn btn-secondary" style="width:100%;margin-top:12px;" onclick="openAddNote()">+ ノートを追加</button>
     </div>
 
+    <!-- ストップウォッチ (studyタイプ時のみ表示) -->
+    <div id="stopwatchSection" style="display:none;padding:0 16px;">
+      <div class="card" style="padding:16px;text-align:center;" id="stopwatchContent">
+        <div id="stopwatchDisplay">
+          <div id="stopwatchTime" style="font-size:28px;font-weight:700;color:var(--primary-dark);margin-bottom:4px;">⏱ 00:00:00</div>
+          <div id="stopwatchStatus" style="font-size:12px;color:var(--text-sub);margin-bottom:12px;"></div>
+        </div>
+        <div id="stopwatchTodaySummary" style="font-size:13px;color:var(--text-sub);margin-bottom:12px;"></div>
+        <!-- タグ選択 -->
+        <div id="stopwatchTagArea" style="margin-bottom:12px;">
+          <div style="display:flex;align-items:center;gap:8px;justify-content:center;">
+            <span style="font-size:12px;color:var(--text-sub);">タグ:</span>
+            <select id="stopwatchTagSelect" style="font-size:13px;padding:4px 8px;border-radius:8px;border:1px solid var(--border);background:var(--bg-card);">
+              <option value="">なし</option>
+            </select>
+            <button class="btn btn-ghost btn-sm" onclick="promptNewTag()" style="font-size:11px;padding:2px 8px;">+ 新規</button>
+          </div>
+        </div>
+        <button class="btn btn-primary" id="stopwatchBtn" onclick="toggleStopwatch()" style="min-width:140px;">▶ スタート</button>
+      </div>
+    </div>
+
     <!-- 学習時間セクション (studyタイプ時のみ表示) -->
     <div id="studyTimeSection" style="display:none;padding:0 16px;">
       <div class="section-header" style="padding:16px 0 8px;">
-        <span class="section-title">⏱ 学習時間</span>
+        <span class="section-title">📊 学習記録</span>
       </div>
       <div class="card" style="padding:16px;" id="studyTimeContent"></div>
     </div>
@@ -105,6 +134,7 @@
   <div class="quick-add">
     <div class="quick-add-inner">
       <input type="text" id="quickAddInput" placeholder="タスクを追加..." onkeydown="if(event.key==='Enter')quickAddTask()">
+      <button class="btn btn-ghost btn-sm" onclick="openModal('bulkAddModal')" title="まとめて追加" style="font-size:16px;padding:4px 8px;">📋</button>
       <button class="btn btn-primary btn-sm" onclick="quickAddTask()">追加</button>
     </div>
   </div>
@@ -188,9 +218,14 @@
         </div>
         <div class="tag-suggestions" id="editTagSuggestions" style="display:none;"></div>
       </div>
+      <div class="form-group" id="editGoalHoursGroup" style="display:none;">
+        <label>目標総学習時間（時間）</label>
+        <input type="number" id="editTotalGoalHours" placeholder="例: 500" min="1">
+      </div>
       <div class="form-group">
         <label>ステータス</label>
         <select id="editProjectStatus">
+          <option value="planning">計画中</option>
           <option value="active">進行中</option>
           <option value="paused">休止</option>
           <option value="done">完了</option>
@@ -293,6 +328,30 @@
       <div style="display:flex;gap:8px;">
         <button class="btn btn-primary" style="flex:1;" onclick="generateReview()">作成する</button>
         <button class="btn btn-ghost" style="flex:1;" onclick="closeModal('reviewConfirmModal')">あとで</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- まとめて追加モーダル -->
+  <div class="modal-overlay" id="bulkAddModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>📋 まとめて追加</h2>
+        <button class="modal-close" onclick="closeModal('bulkAddModal')">&times;</button>
+      </div>
+      <p style="font-size:13px;color:var(--text-sub);margin-bottom:12px;">1行に1タスクで入力してね。改行で区切るよ。</p>
+      <div class="form-group">
+        <textarea id="bulkAddText" rows="10" placeholder="第1章 財務諸表の基礎&#10;第2章 損益計算書&#10;第3章 貸借対照表&#10;..."></textarea>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-secondary" style="flex:1;" onclick="aiBulkGenerate()">🐷 AIで生成</button>
+        <button class="btn btn-primary" style="flex:1;" onclick="submitBulkAdd()">追加</button>
+      </div>
+      <div id="bulkAddAiPrompt" style="display:none;margin-top:12px;">
+        <div class="form-group">
+          <input type="text" id="bulkAiInput" placeholder="例: 財務諸表論の参考書、全15章" onkeydown="if(event.key==='Enter')runAiBulkGenerate()">
+        </div>
+        <button class="btn btn-primary btn-sm" style="width:100%;" onclick="runAiBulkGenerate()">生成する</button>
       </div>
     </div>
   </div>

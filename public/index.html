@@ -20,6 +20,30 @@
       </div>
     </div>
 
+    <!-- プロジェクト一覧 -->
+    <div class="section" style="padding:0 16px;">
+      <div class="section-header" style="padding:16px 0 8px;">
+        <span class="section-title">📁 プロジェクト</span>
+      </div>
+      <!-- 学習ストリーク（まなぶタブ時のみ表示） -->
+      <div id="streakSection" style="display:none;margin-bottom:12px;"></div>
+      <!-- タイプタブ（まなぶ / つくる） -->
+      <div class="dash-type-tabs" id="typeTabs">
+        <button class="dash-type-tab active" data-type="project" onclick="switchTypeTab('project', this)">🔨 つくる</button>
+        <button class="dash-type-tab" data-type="study" onclick="switchTypeTab('study', this)">📖 まなぶ</button>
+      </div>
+      <!-- ステータスサブタブ -->
+      <div class="dash-status-tabs" id="statusTabs">
+        <button class="dash-status-tab active" data-status="active" onclick="switchStatusTab('active', this)">進行中</button>
+        <button class="dash-status-tab" data-status="planning" onclick="switchStatusTab('planning', this)">計画中</button>
+        <button class="dash-status-tab" data-status="paused" onclick="switchStatusTab('paused', this)">休止</button>
+        <button class="dash-status-tab" data-status="done" onclick="switchStatusTab('done', this)">完了</button>
+      </div>
+      <div id="projectProgress" style="display:flex;flex-direction:column;gap:10px;min-height:60px;">
+        <div class="loading"><div class="spinner"></div></div>
+      </div>
+    </div>
+
     <!-- 今日やること -->
     <div class="section" style="padding:0 16px;">
       <div class="section-header" style="padding:16px 0 8px;">
@@ -27,16 +51,6 @@
         <span class="section-count" id="todayTaskCount"></span>
       </div>
       <div id="todayTasks">
-        <div class="loading"><div class="spinner"></div></div>
-      </div>
-    </div>
-
-    <!-- プロジェクト進捗 -->
-    <div class="section" style="padding:0 16px 16px;">
-      <div class="section-header" style="padding:16px 0 8px;">
-        <span class="section-title">📁 プロジェクト進捗</span>
-      </div>
-      <div id="projectProgress" style="display:flex;flex-direction:column;gap:10px;">
         <div class="loading"><div class="spinner"></div></div>
       </div>
     </div>

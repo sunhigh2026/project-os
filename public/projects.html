@@ -17,8 +17,9 @@
       <!-- ステータスフィルタ -->
       <div class="status-filter">
         <button class="filter-btn active" data-status="active" onclick="filterProjects('active', this)">進行中</button>
-        <button class="filter-btn" data-status="done" onclick="filterProjects('done', this)">完了</button>
+        <button class="filter-btn" data-status="planning" onclick="filterProjects('planning', this)">計画中</button>
         <button class="filter-btn" data-status="paused" onclick="filterProjects('paused', this)">休止</button>
+        <button class="filter-btn" data-status="done" onclick="filterProjects('done', this)">完了</button>
         <button class="filter-btn" data-status="" onclick="filterProjects('', this)">すべて</button>
       </div>
 
@@ -69,6 +70,11 @@
       <div class="form-group" id="dailyMinutesGroup" style="display:none;">
         <label>1日の学習時間（分）</label>
         <input type="number" id="createDailyMinutes" placeholder="30" min="1">
+      </div>
+
+      <div class="form-group" id="goalHoursGroup" style="display:none;">
+        <label>目標総学習時間（時間）</label>
+        <input type="number" id="createTotalGoalHours" placeholder="例: 500" min="1">
       </div>
 
       <div class="form-group">

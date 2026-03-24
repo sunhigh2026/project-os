@@ -12,7 +12,7 @@ export async function onRequestPut({ params, request, env }) {
 
   const fields = [];
   const values = [];
-  for (const key of ['name', 'description', 'type', 'goal_date', 'daily_minutes', 'github_repo', 'status', 'color', 'tags']) {
+  for (const key of ['name', 'description', 'type', 'goal_date', 'daily_minutes', 'github_repo', 'status', 'color', 'tags', 'total_goal_hours']) {
     if (body[key] !== undefined) {
       fields.push(`${key} = ?`);
       values.push(key === 'tags' && Array.isArray(body[key]) ? JSON.stringify(body[key]) : body[key]);

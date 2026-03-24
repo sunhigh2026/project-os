@@ -45,6 +45,24 @@ export async function onRequestPost({ env }) {
     LIMIT 5
   `).all();
 
+  // 学習時間データ
+  let studyContext = '';
+  try {
+    const { results: studyData } = await env.DB.prepare(`
+      SELECT ss.project_id, p.name, SUM(ss.duration_minutes) as minutes, p.daily_minutes
+      FROM study_sessions ss
+      JOIN projects p ON ss.project_id = p.id
+      WHERE ss.date = ? AND ss.duration_minutes IS NOT NULL
+      GROUP BY ss.project_id
+    `).bind(today).all();
+
+    if (studyData.length) {
+      studyContext = '\n学習時間（今日）:\n' + studyData.map(s =>
+        `- ${s.name}: ${s.minutes}分${s.daily_minutes ? ` / 目標${s.daily_minutes}分` : ''}`
+      ).join('\n');
+    }
+  } catch (_) {}
+
   const prompt = `あなたは「ピアちゃん」、個人プロジェクトの応援AIコーチです。
 今日は${today}。今日のアドバイスを1〜3文で返してください。
 
@@ -56,6 +74,7 @@ ${overdue.map(t => `- [${t.project_name}] ${t.text} (${t.due_end})`).join('\n') 
 
 作業中: ${doingTasks.length}件
 ${doingTasks.map(t => `- [${t.project_name}] ${t.text}`).join('\n') || 'なし'}
+${studyContext}
 
 ルール:
 - ピアちゃん口調（〜だよ、〜だね、絵文字あり）

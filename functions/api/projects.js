@@ -24,7 +24,7 @@ export async function onRequestGet({ request, env }) {
   }
 
   query += ` ORDER BY
-    CASE p.status WHEN 'active' THEN 0 WHEN 'paused' THEN 1 ELSE 2 END,
+    CASE p.status WHEN 'active' THEN 0 WHEN 'planning' THEN 1 WHEN 'paused' THEN 2 ELSE 3 END,
     p.created_at DESC`;
 
   const { results } = await env.DB.prepare(query).bind(...params).all();
@@ -43,9 +43,9 @@ export async function onRequestPost({ request, env }) {
   const tagsStr = Array.isArray(tags) ? JSON.stringify(tags) : null;
 
   await env.DB.prepare(`
-    INSERT INTO projects (id, name, description, type, goal_date, daily_minutes, github_repo, status, color, tags, created_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?)
-  `).bind(id, name, description || null, type || 'project', goal_date || null, daily_minutes || null, github_repo || null, color || '#7EC8B0', tagsStr, now).run();
+    INSERT INTO projects (id, name, description, type, goal_date, daily_minutes, github_repo, status, color, tags, total_goal_hours, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).bind(id, name, description || null, type || 'project', goal_date || null, daily_minutes || null, github_repo || null, body.status || 'planning', color || '#7EC8B0', tagsStr, body.total_goal_hours || null, now).run();
 
-  return json({ id, name, status: 'active' }, 201);
+  return json({ id, name, status: body.status || 'planning' }, 201);
 }

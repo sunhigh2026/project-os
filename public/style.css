@@ -41,6 +41,10 @@ h2 { font-size: 16px; font-weight: 700; letter-spacing: 0.02em; }
 @keyframes slide-out {
   to { opacity: 0; transform: translateX(60px); height: 0; padding: 0; margin: 0; overflow: hidden; }
 }
+@keyframes pulse {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 1; }
+}
 button:active { transform: scale(0.97); }
 
 /* ===== Layout ===== */
@@ -407,6 +411,23 @@ input:focus, textarea:focus, select:focus { border-color: var(--primary); }
 .priority-dot.high { background: var(--accent-red); }
 .priority-dot.mid { background: var(--accent-yellow); }
 .priority-dot.low { background: var(--text-sub); }
+
+/* Review toggle */
+.review-toggle {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 14px;
+  opacity: 0.3;
+  transition: all 0.15s;
+}
+.review-toggle:hover { opacity: 0.7; }
+.review-toggle.active { opacity: 1; background: rgba(232,160,191,0.15); }
 .phase-label {
   font-size: 11px;
   padding: 2px 8px;
@@ -544,6 +565,51 @@ input:focus, textarea:focus, select:focus { border-color: var(--primary); }
   font-size: 13px;
   font-weight: 700;
   margin-bottom: 6px;
+}
+
+/* ===== Dashboard type/status tabs ===== */
+.dash-type-tabs {
+  display: flex;
+  gap: 0;
+  margin-bottom: 8px;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+.dash-type-tab {
+  flex: 1;
+  padding: 8px 0;
+  border: none;
+  background: var(--bg-card);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-sub);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.dash-type-tab.active {
+  background: var(--primary);
+  color: #fff;
+}
+.dash-status-tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+.dash-status-tab {
+  padding: 4px 12px;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  font-size: 12px;
+  color: var(--text-sub);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.dash-status-tab.active {
+  background: var(--primary-dark);
+  color: #fff;
+  border-color: var(--primary-dark);
 }
 
 /* ===== Loading ===== */

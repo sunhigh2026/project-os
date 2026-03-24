@@ -149,32 +149,45 @@ export async function onRequestPost({ request, env }) {
       "SELECT text, due_end FROM tasks WHERE project_id = ? AND status != 'done' AND due_end >= ? AND due_end <= ? ORDER BY due_end ASC"
     ).bind(pId, nextWeekStart, nextWeekEnd).all();
 
-    // Study data (for study projects)
+    // Study data (for study projects) — study_sessionsベース
     let studyData = null;
     if (project.type === 'study') {
-      const { results: studyTasks } = await env.DB.prepare(
-        "SELECT started_at, done_at FROM tasks WHERE project_id = ? AND started_at IS NOT NULL AND done_at IS NOT NULL AND done_at >= ? AND done_at <= ?"
-      ).bind(pId, weekStart + 'T00:00:00', weekEnd + 'T23:59:59').all();
+      const { results: sessionData } = await env.DB.prepare(`
+        SELECT date, SUM(duration_minutes) as minutes
+        FROM study_sessions
+        WHERE project_id = ? AND date >= ? AND date <= ? AND duration_minutes IS NOT NULL
+        GROUP BY date
+      `).bind(pId, weekStart, weekEnd).all();
 
       let totalMinutes = 0;
       const daily = [0, 0, 0, 0, 0, 0, 0]; // Mon-Sun
 
-      for (const st of studyTasks) {
-        const start = new Date(st.started_at);
-        const end = new Date(st.done_at);
-        const diff = (end - start) / 60000;
-        if (diff > 0 && diff < 480) {
-          totalMinutes += diff;
-          // Determine day of week (Mon=0 ... Sun=6)
-          const dayIdx = end.getUTCDay() === 0 ? 6 : end.getUTCDay() - 1;
-          daily[dayIdx] += Math.round(diff);
-        }
+      for (const sd of sessionData) {
+        const mins = sd.minutes || 0;
+        totalMinutes += mins;
+        const d = new Date(sd.date + 'T00:00:00Z');
+        const dayIdx = d.getUTCDay() === 0 ? 6 : d.getUTCDay() - 1;
+        daily[dayIdx] += Math.round(mins);
       }
 
       totalMinutes = Math.round(totalMinutes);
       studyTotalMinutes += totalMinutes;
       const goalMinutes = (project.daily_minutes || 0) * 7;
-      studyData = { minutes: totalMinutes, goal_minutes: goalMinutes, daily };
+
+      // タグ別内訳
+      let tagBreakdown = {};
+      try {
+        const { results: tagData } = await env.DB.prepare(`
+          SELECT COALESCE(tag, '未分類') as tag, SUM(duration_minutes) as minutes
+          FROM study_sessions
+          WHERE project_id = ? AND date >= ? AND date <= ? AND duration_minutes IS NOT NULL
+          GROUP BY COALESCE(tag, '未分類')
+          ORDER BY minutes DESC
+        `).bind(pId, weekStart, weekEnd).all();
+        for (const t of tagData) tagBreakdown[t.tag] = t.minutes || 0;
+      } catch (_) {}
+
+      studyData = { minutes: totalMinutes, goal_minutes: goalMinutes, daily, tags: tagBreakdown };
     }
 
     // GitHub activity
@@ -316,7 +329,44 @@ export async function onRequestPost({ request, env }) {
     }));
   } catch (_) {}
 
-  // ========== 9. Build velocity_data JSON ==========
+  // ========== 9. Study streak ==========
+  let streakCurrent = 0, streakBest = 0;
+  try {
+    const { results: allStudyDays } = await env.DB.prepare(`
+      SELECT DISTINCT date FROM study_sessions WHERE duration_minutes > 0 ORDER BY date
+    `).all();
+
+    let best = 0, run = 0, prevD = null;
+    for (const r of allStudyDays) {
+      if (prevD) {
+        const diff = (new Date(r.date + 'T00:00:00Z') - new Date(prevD + 'T00:00:00Z')) / 86400000;
+        run = diff === 1 ? run + 1 : 1;
+      } else {
+        run = 1;
+      }
+      if (run > best) best = run;
+      prevD = r.date;
+    }
+    streakBest = best;
+
+    // Current streak from today backwards
+    const todayObj = new Date(today + 'T00:00:00Z');
+    for (let i = 0; i < 365; i++) {
+      const d = new Date(todayObj);
+      d.setUTCDate(d.getUTCDate() - i);
+      const ds = d.toISOString().slice(0, 10);
+      const has = allStudyDays.some(r => r.date === ds);
+      if (has) {
+        streakCurrent++;
+      } else if (i === 0) {
+        continue; // today not yet studied is OK
+      } else {
+        break;
+      }
+    }
+  } catch (_) {}
+
+  // ========== Build velocity_data JSON ==========
   const velocityData = {
     projects: projectDetails,
     velocity: velocityWeeks,
@@ -325,6 +375,7 @@ export async function onRequestPost({ request, env }) {
     prev_added: prevAdded,
     overdue_tasks: overdueTasks,
     study_total_minutes: studyTotalMinutes,
+    study_streak: { current: streakCurrent, best: streakBest },
   };
 
   // ========== 10. Gemini prompt ==========
@@ -349,6 +400,9 @@ export async function onRequestPost({ request, env }) {
         }
         if (p.study) {
           summary += `\n  学習: ${p.study.minutes}分 / 目標${p.study.goal_minutes}分`;
+          if (p.study.tags && Object.keys(p.study.tags).length > 0) {
+            summary += `\n  内訳: ${Object.entries(p.study.tags).map(([t, m]) => `${t}${m}分`).join(', ')}`;
+          }
         }
         return summary;
       }).join('\n\n');
@@ -385,6 +439,7 @@ ${comparisonText}
 
 全体: 完了${tasksCompleted}件, 追加${tasksAdded}件, アクティブ${activeProjects.length}プロジェクト
 学習合計: ${studyTotalMinutes}分
+学習ストリーク: ${streakCurrent}日連続（最長: ${streakBest}日）
 
 === 指示 ===
 以下のJSON形式で返答してください（他の文章は不要）:

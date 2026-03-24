@@ -134,6 +134,7 @@ function selectType(type) {
     b.classList.toggle('selected', b.dataset.type === type);
   });
   document.getElementById('dailyMinutesGroup').style.display = type === 'study' ? '' : 'none';
+  document.getElementById('goalHoursGroup').style.display = type === 'study' ? '' : 'none';
 }
 
 // ==============================
@@ -228,6 +229,7 @@ async function createProject() {
     type: selectedType,
     goal_date: document.getElementById('createGoalDate').value || null,
     daily_minutes: selectedType === 'study' ? (parseInt(document.getElementById('createDailyMinutes').value) || null) : null,
+    total_goal_hours: selectedType === 'study' ? (parseFloat(document.getElementById('createTotalGoalHours').value) || null) : null,
     github_repo: document.getElementById('createGithubRepo').value.trim() || null,
     color: selectedColor,
     tags: createTags.length ? createTags : null,
@@ -247,6 +249,7 @@ async function createProject() {
     document.getElementById('createDesc').value = '';
     document.getElementById('createGoalDate').value = '';
     document.getElementById('createDailyMinutes').value = '';
+    document.getElementById('createTotalGoalHours').value = '';
     document.getElementById('createGithubRepo').value = '';
     document.getElementById('createTagInput').value = '';
     createTags = [];

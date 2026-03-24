@@ -1,7 +1,21 @@
 // ==============================
+// 状態
+// ==============================
+let dashData = null;
+let currentType = sessionStorage.getItem('dashType') || 'project';
+let currentStatus = sessionStorage.getItem('dashStatus') || 'active';
+
+// ==============================
 // 初期化
 // ==============================
 document.addEventListener('DOMContentLoaded', () => {
+  // タブ初期状態を復元
+  document.querySelectorAll('.dash-type-tab').forEach(b => {
+    b.classList.toggle('active', b.dataset.type === currentType);
+  });
+  document.querySelectorAll('.dash-status-tab').forEach(b => {
+    b.classList.toggle('active', b.dataset.status === currentStatus);
+  });
   loadDashboard();
 });
 
@@ -10,17 +24,69 @@ document.addEventListener('DOMContentLoaded', () => {
 // ==============================
 async function loadDashboard() {
   try {
-    const data = await apiFetch('/api/dashboard');
-    renderPiaAdvice(data);
-    renderTodayTasks(data.todayTasks, data.today);
-    renderProjectProgress(data.projects);
+    dashData = await apiFetch('/api/dashboard');
+    renderPiaAdvice(dashData);
+    renderProjectProgress(dashData.projects);
+    updateStreakVisibility();
+    renderTodayTasks(dashData.todayTasks, dashData.today);
     loadDigest();
-    // AIアドバイス取得（バックグラウンド）
     loadAiAdvice();
   } catch (e) {
     console.error('Dashboard error:', e);
     document.getElementById('piaBubble').textContent = 'データの読み込みに失敗したよ〜';
   }
+}
+
+// ==============================
+// タブ切替
+// ==============================
+function switchTypeTab(type, btn) {
+  currentType = type;
+  sessionStorage.setItem('dashType', type);
+  document.querySelectorAll('.dash-type-tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  if (dashData) {
+    renderProjectProgress(dashData.projects);
+    updateStreakVisibility();
+  }
+}
+
+function updateStreakVisibility() {
+  const streakEl = document.getElementById('streakSection');
+  if (currentType === 'study' && dashData?.studyStreak) {
+    renderStreak(dashData.studyStreak);
+    streakEl.style.display = '';
+  } else {
+    streakEl.style.display = 'none';
+  }
+}
+
+function renderStreak(streak) {
+  const el = document.getElementById('streakSection');
+  const dots = (streak.dots || []).map((d, i) => {
+    const isToday = i === streak.dots.length - 1;
+    const color = d ? 'var(--primary)' : 'var(--border)';
+    const pulse = isToday && !d ? 'animation:pulse 2s infinite;' : '';
+    return `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${color};${pulse}"></span>`;
+  }).join('');
+
+  el.innerHTML = `
+    <div class="card" style="padding:12px 16px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+        <span style="font-size:14px;font-weight:700;">${streak.current > 0 ? `🔥 ${streak.current}日連続学習中！` : '今日から始めよう！'}</span>
+        <span style="font-size:11px;color:var(--text-sub);">最長 ${streak.best}日</span>
+      </div>
+      <div style="display:flex;gap:3px;justify-content:center;">${dots}</div>
+    </div>
+  `;
+}
+
+function switchStatusTab(status, btn) {
+  currentStatus = status;
+  sessionStorage.setItem('dashStatus', status);
+  document.querySelectorAll('.dash-status-tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  if (dashData) renderProjectProgress(dashData.projects);
 }
 
 // ==============================
@@ -66,9 +132,92 @@ async function loadAiAdvice() {
         document.getElementById('piaIcon').src = getPiaImage(data.pia_mood);
       }
     }
-  } catch (_) {
-    // AI失敗時は静的メッセージを維持
+  } catch (_) {}
+}
+
+// ==============================
+// プロジェクト進捗（タブ切替対応）
+// ==============================
+function renderProjectProgress(projects) {
+  const el = document.getElementById('projectProgress');
+  if (!projects || !projects.length) {
+    el.innerHTML = `<div style="text-align:center;padding:20px;color:var(--text-sub);font-size:13px;">
+      <a href="/projects" style="color:var(--primary-dark);">プロジェクトを作成する →</a>
+    </div>`;
+    return;
   }
+
+  const typeValue = currentType === 'study' ? 'study' : 'project';
+  const filtered = projects.filter(p => p.type === typeValue && p.status === currentStatus);
+
+  if (!filtered.length) {
+    const statusLabel = { planning: '計画中', active: '進行中', paused: '休止', done: '完了' }[currentStatus] || currentStatus;
+    const typeLabel = currentType === 'study' ? 'まなぶ' : 'つくる';
+    el.innerHTML = `<div style="text-align:center;padding:24px 0;color:var(--text-sub);font-size:13px;">
+      ${typeLabel}の${statusLabel}プロジェクトはないよ
+    </div>`;
+    return;
+  }
+
+  el.innerHTML = filtered.map(p => renderCompactCard(p)).join('');
+}
+
+function renderCompactCard(p) {
+  const total = p.total_tasks || 0;
+  const done = p.done_tasks || 0;
+  const pct = total ? Math.round((done / total) * 100) : 0;
+  const remaining = formatRelativeDate(p.goal_date);
+  const color = p.color || '#7EC8B0';
+  const typeIcon = p.type === 'study' ? '📖' : '🔨';
+
+  let bottomLine = '';
+  if (p.type === 'study') {
+    const todayMin = p.study_today_minutes || 0;
+    const goalMin = p.daily_minutes || 0;
+    if (goalMin > 0) {
+      bottomLine = `⏱ 今日: ${todayMin}分/${goalMin}分`;
+    } else {
+      bottomLine = `⏱ 今日: ${todayMin}分`;
+    }
+  } else {
+    if (p.next_task) {
+      const taskText = p.next_task.length > 20 ? p.next_task.slice(0, 20) + '...' : p.next_task;
+      bottomLine = `📝 次: ${escHtml(taskText)}`;
+    }
+  }
+
+  // total_goal_hours がある場合、進捗バーを時間ベースに差し替え
+  let progressHtml = '';
+  if (p.type === 'study' && p.total_goal_hours) {
+    const totalHours = Math.round((p.study_today_minutes || 0) / 60); // dashboard doesn't have cumulative, so use task progress
+    progressHtml = `
+      <div class="progress-bar" style="margin-bottom:4px;">
+        <div class="progress-bar-fill" style="width:${pct}%"></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;color:var(--text-sub);">
+        <span>${done}/${total} (${pct}%)</span>
+        ${remaining ? `<span>🎯 ${remaining}</span>` : ''}
+      </div>
+    `;
+  } else {
+    progressHtml = `
+      <div class="progress-bar" style="margin-bottom:4px;">
+        <div class="progress-bar-fill" style="width:${pct}%"></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;color:var(--text-sub);">
+        <span>${done}/${total} (${pct}%)</span>
+        ${remaining ? `<span>🎯 ${remaining}</span>` : ''}
+      </div>
+    `;
+  }
+
+  return `
+    <div class="mini-card" style="border-left-color:${escHtml(color)};cursor:pointer;" onclick="location.href='/project-detail?id=${p.id}'">
+      <div class="mini-card-title">${typeIcon} ${escHtml(p.name)}</div>
+      ${progressHtml}
+      ${bottomLine ? `<div style="font-size:11px;color:var(--primary-dark);margin-top:4px;">${bottomLine}</div>` : ''}
+    </div>
+  `;
 }
 
 // ==============================
@@ -90,11 +239,19 @@ function renderTodayTasks(tasks, today) {
   count.textContent = `${tasks.length}件`;
   el.innerHTML = tasks.map(t => {
     const overdue = t.due_end && t.due_end < today;
+    const isToday = t.due_end === today;
     const nextStatus = t.status === 'open' ? 'doing' : 'done';
     const checkClass = t.status === 'doing' ? 'doing' : '';
 
+    let itemStyle = '';
+    if (overdue) {
+      itemStyle = 'background:rgba(252,165,165,0.08);border-left:3px solid var(--accent-red);';
+    } else if (isToday) {
+      itemStyle = 'background:rgba(134,239,172,0.08);border-left:3px solid var(--accent-green);';
+    }
+
     return `
-      <div class="task-item" ${overdue ? 'style="background:rgba(252,165,165,0.08);border-radius:8px;padding:12px 8px;"' : ''}>
+      <div class="task-item" style="${itemStyle}border-radius:8px;padding:12px 8px;">
         <div class="task-check ${checkClass}" onclick="dashCycleStatus('${t.id}', '${nextStatus}')"></div>
         <div class="priority-dot ${t.priority || 'mid'}"></div>
         <div class="task-content" onclick="location.href='/project-detail?id=${t.project_id}'" style="cursor:pointer;">
@@ -121,46 +278,6 @@ async function dashCycleStatus(taskId, newStatus) {
   } catch (e) {
     showToast(`エラー: ${e.message}`);
   }
-}
-
-// ==============================
-// プロジェクト進捗
-// ==============================
-function renderProjectProgress(projects) {
-  const el = document.getElementById('projectProgress');
-
-  if (!projects || !projects.length) {
-    el.innerHTML = `<div style="text-align:center;padding:20px;color:var(--text-sub);font-size:13px;">
-      <a href="/projects" style="color:var(--primary-dark);">プロジェクトを作成する →</a>
-    </div>`;
-    return;
-  }
-
-  el.innerHTML = projects.filter(p => p.status === 'active').map(p => {
-    const total = p.total_tasks || 0;
-    const done = p.done_tasks || 0;
-    const pct = total ? Math.round((done / total) * 100) : 0;
-    const remaining = formatRelativeDate(p.goal_date);
-    const color = p.color || '#7EC8B0';
-    const typeIcon = p.type === 'study' ? '📖' : '🔨';
-
-    const studyHtml = p.type === 'study' && p.daily_minutes ?
-      `<div style="font-size:11px;color:var(--primary-dark);margin-top:4px;">⏱ 目標: ${p.daily_minutes}分/日</div>` : '';
-
-    return `
-      <div class="mini-card" style="border-left-color:${escHtml(color)};cursor:pointer;" onclick="location.href='/project-detail?id=${p.id}'">
-        <div class="mini-card-title">${typeIcon} ${escHtml(p.name)}</div>
-        <div class="progress-bar" style="margin-bottom:4px;">
-          <div class="progress-bar-fill" style="width:${pct}%"></div>
-        </div>
-        <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-sub);">
-          <span>${done}/${total} (${pct}%)</span>
-          ${remaining ? `<span>🎯 ${remaining}</span>` : ''}
-        </div>
-        ${studyHtml}
-      </div>
-    `;
-  }).join('');
 }
 
 // ==============================
@@ -201,7 +318,6 @@ function renderDigestCard(digest) {
     return '';
   }
 
-  // Truncate pia comment to ~2 lines
   const comment = digest.pia_comment || '';
   const truncated = comment.length > 80 ? comment.slice(0, 80) + '...' : comment;
 

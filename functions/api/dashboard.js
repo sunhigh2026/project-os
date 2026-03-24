@@ -28,15 +28,43 @@ export async function onRequestGet({ env }) {
     LIMIT 20
   `).bind(today, today).all();
 
-  // 全プロジェクト進捗
+  // 全プロジェクト（全ステータス）
   const { results: projects } = await env.DB.prepare(`
     SELECT p.*,
       (SELECT COUNT(*) FROM tasks WHERE project_id = p.id) as total_tasks,
-      (SELECT COUNT(*) FROM tasks WHERE project_id = p.id AND status = 'done') as done_tasks
+      (SELECT COUNT(*) FROM tasks WHERE project_id = p.id AND status = 'done') as done_tasks,
+      (SELECT text FROM tasks WHERE project_id = p.id AND status != 'done' ORDER BY CASE status WHEN 'doing' THEN 0 ELSE 1 END, sort_order LIMIT 1) as next_task
     FROM projects p
-    WHERE p.status = 'active'
-    ORDER BY p.created_at DESC
+    WHERE p.status != 'done'
+    ORDER BY
+      CASE p.status WHEN 'active' THEN 0 WHEN 'planning' THEN 1 WHEN 'paused' THEN 2 ELSE 3 END,
+      p.created_at DESC
   `).all();
+
+  // まなぶプロジェクトの今日の学習時間（study_sessions）
+  const { results: studyToday } = await env.DB.prepare(`
+    SELECT project_id, SUM(duration_minutes) as minutes
+    FROM study_sessions
+    WHERE date = ? AND duration_minutes IS NOT NULL
+    GROUP BY project_id
+  `).bind(today).all();
+  const studyTodayMap = {};
+  for (const s of studyToday) studyTodayMap[s.project_id] = s.minutes || 0;
+
+  // アクティブな計測中セッションの経過時間も加算
+  const { results: activeSessions } = await env.DB.prepare(`
+    SELECT project_id, started_at FROM study_sessions
+    WHERE date = ? AND ended_at IS NULL
+  `).bind(today).all();
+  for (const s of activeSessions) {
+    const elapsed = Math.floor((now.getTime() - new Date(s.started_at).getTime()) / 60000);
+    studyTodayMap[s.project_id] = (studyTodayMap[s.project_id] || 0) + Math.max(0, elapsed);
+  }
+
+  // プロジェクトに学習時間を付与
+  for (const p of projects) {
+    p.study_today_minutes = studyTodayMap[p.id] || 0;
+  }
 
   // 期限超過タスク数
   const overdue = await env.DB.prepare(`
@@ -45,11 +73,72 @@ export async function onRequestGet({ env }) {
     WHERE t.status != 'done' AND t.due_end < ? AND p.status = 'active'
   `).bind(today).first();
 
+  // 学習ストリーク（直近30日）
+  let studyStreak = { current: 0, best: 0, dots: [] };
+  try {
+    // 直近30日の学習有無を取得
+    const d30 = new Date(today + 'T00:00:00Z');
+    d30.setUTCDate(d30.getUTCDate() - 29);
+    const startDate30 = d30.toISOString().slice(0, 10);
+
+    const { results: studyDays } = await env.DB.prepare(`
+      SELECT DISTINCT date FROM study_sessions
+      WHERE date >= ? AND duration_minutes > 0
+      ORDER BY date
+    `).bind(startDate30).all();
+    const studyDaySet = new Set(studyDays.map(r => r.date));
+
+    // 30日のドット配列を生成
+    const dots = [];
+    for (let i = 29; i >= 0; i--) {
+      const dd = new Date(today + 'T00:00:00Z');
+      dd.setUTCDate(dd.getUTCDate() - i);
+      const dateStr = dd.toISOString().slice(0, 10);
+      dots.push(studyDaySet.has(dateStr) ? 1 : 0);
+    }
+
+    // 現在のストリーク（今日から遡って連続日数、今日未学習なら昨日から）
+    let current = 0;
+    for (let i = dots.length - 1; i >= 0; i--) {
+      if (dots[i] === 1) current++;
+      else if (i === dots.length - 1) continue; // 今日はまだ学習してなくてもOK
+      else break;
+    }
+
+    // 全期間の最長ストリーク
+    const { results: allDays } = await env.DB.prepare(`
+      SELECT DISTINCT date FROM study_sessions
+      WHERE duration_minutes > 0
+      ORDER BY date
+    `).all();
+
+    let best = 0, streak = 0, prevDate = null;
+    for (const r of allDays) {
+      if (prevDate) {
+        const prev = new Date(prevDate + 'T00:00:00Z');
+        const curr = new Date(r.date + 'T00:00:00Z');
+        const diff = (curr - prev) / 86400000;
+        if (diff === 1) {
+          streak++;
+        } else {
+          streak = 1;
+        }
+      } else {
+        streak = 1;
+      }
+      if (streak > best) best = streak;
+      prevDate = r.date;
+    }
+
+    studyStreak = { current, best, dots };
+  } catch (_) {}
+
   return json({
     today,
     todayTasks,
     projects,
     overdueCount: overdue?.count || 0,
+    studyStreak,
   });
 }
 
