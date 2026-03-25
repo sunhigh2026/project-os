@@ -3,6 +3,7 @@
 // ==============================
 let projects = [];
 let currentFilter = 'active';
+let currentTypeFilter = '';
 let selectedType = 'project';
 let selectedColor = '#7EC8B0';
 let lastCreatedId = null;
@@ -41,10 +42,15 @@ function renderProjects() {
   // Render tag filter bar
   renderTagFilter();
 
-  // Filter by active tag
+  // Filter by type
   let filtered = projects;
+  if (currentTypeFilter) {
+    filtered = filtered.filter(p => p.type === currentTypeFilter);
+  }
+
+  // Filter by active tag
   if (activeTagFilter) {
-    filtered = projects.filter(p => {
+    filtered = filtered.filter(p => {
       const tags = parseTags(p.tags);
       return tags.includes(activeTagFilter);
     });
@@ -123,6 +129,13 @@ function filterProjects(status, btn) {
   document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   loadProjects();
+}
+
+function filterByType(type, btn) {
+  currentTypeFilter = type;
+  document.querySelectorAll('#projectTypeTabs .dash-type-tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderProjects();
 }
 
 // ==============================

@@ -13,7 +13,8 @@ export async function onRequestGet({ request, env }) {
   let query = `
     SELECT p.*,
       (SELECT COUNT(*) FROM tasks WHERE project_id = p.id) as total_tasks,
-      (SELECT COUNT(*) FROM tasks WHERE project_id = p.id AND status = 'done') as done_tasks
+      (SELECT COUNT(*) FROM tasks WHERE project_id = p.id AND status = 'done') as done_tasks,
+      (SELECT MAX(COALESCE(t.done_at, t.created_at)) FROM tasks t WHERE t.project_id = p.id) as last_activity
     FROM projects p
   `;
   const params = [];
@@ -25,7 +26,7 @@ export async function onRequestGet({ request, env }) {
 
   query += ` ORDER BY
     CASE p.status WHEN 'active' THEN 0 WHEN 'planning' THEN 1 WHEN 'paused' THEN 2 ELSE 3 END,
-    p.created_at DESC`;
+    COALESCE(last_activity, p.created_at) DESC`;
 
   const { results } = await env.DB.prepare(query).bind(...params).all();
   return json({ projects: results });

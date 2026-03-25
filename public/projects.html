@@ -14,6 +14,13 @@
     <div style="padding:16px;">
       <h2 style="margin-bottom:12px;">📁 プロジェクト</h2>
 
+      <!-- タイプタブ -->
+      <div class="dash-type-tabs" id="projectTypeTabs" style="margin-bottom:8px;">
+        <button class="dash-type-tab active" data-type="" onclick="filterByType('', this)">すべて</button>
+        <button class="dash-type-tab" data-type="project" onclick="filterByType('project', this)">🔨 つくる</button>
+        <button class="dash-type-tab" data-type="study" onclick="filterByType('study', this)">📖 まなぶ</button>
+      </div>
+
       <!-- ステータスフィルタ -->
       <div class="status-filter">
         <button class="filter-btn active" data-status="active" onclick="filterProjects('active', this)">進行中</button>
