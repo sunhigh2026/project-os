@@ -1,4 +1,4 @@
-const CACHE_NAME = 'project-os-v2';
+const CACHE_NAME = 'project-os-v3';
 const STATIC_ASSETS = [
   '/',
   '/index.html',

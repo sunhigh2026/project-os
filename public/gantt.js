@@ -3,7 +3,7 @@
 // ==============================
 let ganttData = null;
 let viewMode = 'week'; // 'week' | 'month'
-const TASK_NAME_WIDTH = 140;
+const TASK_NAME_WIDTH = 160;
 const DAY_WIDTH_WEEK = 36;
 const DAY_WIDTH_MONTH = 14;
 
@@ -111,7 +111,11 @@ function renderGantt() {
     const dow = new Date(d + 'T00:00:00').getDay();
     const isWeekend = dow === 0 || dow === 6;
     const isToday = d === today;
-    const label = viewMode === 'week' ? d.slice(8) : (parseInt(d.slice(8)) % 5 === 1 ? d.slice(5).replace('-', '/') : '');
+    const day = parseInt(d.slice(8));
+    const month = parseInt(d.slice(5, 7));
+    const label = viewMode === 'week'
+      ? ((day === 1 || i === 0) ? `${month}/${day}` : d.slice(8))
+      : (day % 5 === 1 ? `${month}/${day}` : '');
     html += `<div class="gantt-date-cell${isWeekend ? ' weekend' : ''}${isToday ? ' today' : ''}">${label}</div>`;
   }
   html += '</div>';
