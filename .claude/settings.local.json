@@ -6,7 +6,10 @@
       "Bash(mkdir -p \"C:/Users/ocura/Documents/Dev/project-os/functions/api/tasks/[id]\")",
       "Bash(mkdir -p \"C:/Users/ocura/Documents/Dev/project-os/functions/api/ai\")",
       "Bash(mkdir -p \"C:/Users/ocura/Documents/Dev/project-os/functions/api/github/[projectId]\")",
-      "Bash(npx wrangler:*)"
+      "Bash(npx wrangler:*)",
+      "Bash(ls *.sql)",
+      "Bash(cat migration*.sql)",
+      "Bash(grep -rn \"icon-pia-glasses\\\\|favicon\\\\|rel=\"\"icon\"\"\\\\|apple-touch-icon\" public/*.html)"
     ]
   }
 }
