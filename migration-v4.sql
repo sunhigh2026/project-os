@@ -1,9 +1,9 @@
 -- ==============================
--- migration-v4: タグ機能・デフォルトテンプレート追加
+-- migration-v4: タグ機能・ノート日付・デフォルトテンプレート追加
 -- ==============================
 
--- プロジェクトにtagsカラム追加
-ALTER TABLE projects ADD COLUMN tags TEXT;
+-- ノートに日付カラム追加（日付入りメモ用）
+ALTER TABLE notes ADD COLUMN note_date TEXT;
 
 -- デフォルトテンプレート
 INSERT OR IGNORE INTO templates (id, name, description, type, tasks_json, created_at) VALUES

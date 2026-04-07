@@ -20,6 +20,14 @@ document.addEventListener('DOMContentLoaded', () => {
   loadProject(id);
 });
 
+// bfcache（戻るボタン）でページが復元された場合に最新データを再取得
+window.addEventListener('pageshow', (e) => {
+  if (e.persisted) {
+    const id = new URLSearchParams(location.search).get('id');
+    if (id) loadProject(id);
+  }
+});
+
 // ==============================
 // プロジェクト読み込み
 // ==============================
@@ -758,11 +766,14 @@ function renderNotes() {
       ? `<a href="${escHtml(n.content)}" target="_blank" rel="noopener" style="color:var(--primary-dark);font-size:12px;word-break:break-all;">${escHtml(n.content)}</a>`
       : n.content ? `<div style="font-size:12px;color:var(--text-sub);margin-top:2px;white-space:pre-wrap;">${linkify(escHtml(n.content))}</div>` : '';
 
+    const dateBadge = n.note_date
+      ? `<span style="font-size:12px;font-weight:600;color:var(--primary-dark);background:var(--primary-light);padding:1px 7px;border-radius:8px;margin-right:4px;">📅 ${formatDate(n.note_date)}</span>`
+      : '';
     return `
       <div class="task-item" style="${n.type === 'spec' ? 'background:var(--primary-light);border-radius:8px;padding:10px;margin-bottom:4px;' : ''}">
         <div style="font-size:18px;">${icon}</div>
         <div class="task-content" style="cursor:pointer;" onclick="${isLink && n.content ? `window.open('${escHtml(n.content)}','_blank')` : ''}">
-          <div class="task-text">${escHtml(n.title)}</div>
+          <div class="task-text">${dateBadge}${escHtml(n.title)}</div>
           ${contentHtml}
           <div class="task-meta"><span>${formatDate(n.created_at?.slice(0,10))}</span></div>
         </div>
@@ -789,6 +800,7 @@ function onNoteTypeChange() {
 
 function openAddNote() {
   document.getElementById('noteType').value = 'memo';
+  document.getElementById('noteDate').value = '';
   document.getElementById('noteTitle').value = '';
   document.getElementById('noteContent').value = '';
   document.getElementById('noteUrl').value = '';
@@ -803,11 +815,12 @@ async function saveNote() {
 
   const isLink = type === 'link' || type === 'spec';
   const content = isLink ? document.getElementById('noteUrl').value.trim() : document.getElementById('noteContent').value.trim();
+  const note_date = document.getElementById('noteDate').value || null;
 
   try {
     await apiFetch(`/api/projects/${project.id}/notes`, {
       method: 'POST',
-      body: JSON.stringify({ type, title, content: content || null }),
+      body: JSON.stringify({ type, title, content: content || null, note_date }),
     });
     closeModal('addNoteModal');
     showToast('📝 ノートを追加しました');

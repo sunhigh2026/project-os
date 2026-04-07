@@ -19,6 +19,11 @@ document.addEventListener('DOMContentLoaded', () => {
   loadProjects();
 });
 
+// bfcache（戻るボタン）でページが復元された場合に最新データを再取得
+window.addEventListener('pageshow', (e) => {
+  if (e.persisted) loadProjects();
+});
+
 // ==============================
 // プロジェクト読み込み
 // ==============================

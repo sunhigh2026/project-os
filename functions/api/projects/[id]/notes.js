@@ -25,8 +25,8 @@ export async function onRequestPost({ params, request, env }) {
   const now = new Date().toISOString();
 
   await env.DB.prepare(
-    'INSERT INTO notes (id, project_id, type, title, content, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)'
-  ).bind(noteId, id, body.type || 'memo', body.title, body.content || null, now, now).run();
+    'INSERT INTO notes (id, project_id, type, title, content, note_date, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+  ).bind(noteId, id, body.type || 'memo', body.title, body.content || null, body.note_date || null, now, now).run();
 
   return json({ id: noteId, ok: true });
 }
