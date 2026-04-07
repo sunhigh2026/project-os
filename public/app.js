@@ -1,18 +1,16 @@
 // ==============================
-// 設定
-// ==============================
-const AUTH_KEY = 'hidapia2026';
-
-// ==============================
 // API ユーティリティ
 // ==============================
 async function apiFetch(path, options = {}) {
   const headers = {
     'Content-Type': 'application/json',
-    'Authorization': `Bearer ${AUTH_KEY}`,
     ...(options.headers || {}),
   };
   const res = await fetch(path, { ...options, headers });
+  if (res.status === 401) {
+    window.location.href = `/login.html?from=${encodeURIComponent(location.pathname + location.search)}`;
+    return null;
+  }
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.error || `HTTP ${res.status}`);

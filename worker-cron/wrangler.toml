@@ -7,6 +7,7 @@ crons = ["0 0 * * 1"]  # Every Monday 00:00 UTC = Monday 09:00 JST
 
 [vars]
 PROJECT_OS_URL = "https://project-os-3k7.pages.dev"
-AUTH_TOKEN = "hidapia2026"
 EMAIL_TO = "ocurambo@gmail.com"
 EMAIL_FROM = "ocurambo@gmail.com"
+# AUTH_TOKEN はCloudflare Dashboardの「Variables and Secrets」でSecretとして設定してください
+# wrangler secret put AUTH_TOKEN

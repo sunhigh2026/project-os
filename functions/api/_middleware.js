@@ -1,34 +1,34 @@
 export async function onRequest(context) {
   const { request, env, next } = context;
 
-  const corsHeaders = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, PATCH, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-  };
-
+  // OPTIONSリクエスト（preflight）
   if (request.method === 'OPTIONS') {
-    return new Response(null, { status: 204, headers: corsHeaders });
+    return new Response(null, { status: 204 });
   }
 
-  // AUTH_TOKEN検証
-  const authHeader = request.headers.get('Authorization');
-  const expectedKey = `Bearer ${env.AUTH_TOKEN}`;
-  if (!authHeader || authHeader !== expectedKey) {
-    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-      status: 401,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+  const url = new URL(request.url);
+
+  // ログインエンドポイントは認証スキップ
+  const isLoginEndpoint = url.pathname === '/api/login';
+  if (!isLoginEndpoint) {
+    const validToken = env.AUTH_TOKEN;
+
+    // ① セッションCookie（ブラウザ）
+    const cookieHeader = request.headers.get('Cookie') || '';
+    const sessionMatch = cookieHeader.match(/(?:^|;\s*)project_os_session=([^;]+)/);
+    const sessionToken = sessionMatch ? sessionMatch[1] : null;
+
+    // ② Bearer トークン（cron workerなどサーバー間通信）
+    const authHeader = request.headers.get('Authorization');
+    const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
+
+    if (sessionToken !== validToken && bearerToken !== validToken) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
   }
 
-  const response = await next();
-
-  const newHeaders = new Headers(response.headers);
-  for (const [key, value] of Object.entries(corsHeaders)) {
-    newHeaders.set(key, value);
-  }
-  return new Response(response.body, {
-    status: response.status,
-    headers: newHeaders,
-  });
+  return next();
 }
