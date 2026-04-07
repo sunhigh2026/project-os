@@ -83,6 +83,11 @@ function renderProject() {
     tagsEl.style.display = 'none';
   }
 
+  // Render status badge
+  const statusLabels = { planning: '計画中', active: '進行中', paused: '休止', done: '完了' };
+  document.getElementById('projectStatusBadge').innerHTML =
+    `<button class="status-badge ${project.status}" onclick="quickChangeStatus()">${statusLabels[project.status] || project.status}</button>`;
+
   const total = tasks.length;
   const done = tasks.filter(t => t.status === 'done').length;
   const pct = total ? Math.round((done / total) * 100) : 0;
@@ -96,7 +101,36 @@ function renderProject() {
   if (project.daily_minutes) {
     meta.push(`⏱ ${project.daily_minutes}分/日`);
   }
+  if (project.github_repo) {
+    meta.push(`<a href="https://github.com/${escHtml(project.github_repo)}" target="_blank" rel="noopener" style="color:var(--primary-dark);text-decoration:none;">🐙 ${escHtml(project.github_repo)}</a>`);
+  }
   document.getElementById('projectMeta').innerHTML = meta.map(m => `<span>${m}</span>`).join('');
+}
+
+async function quickChangeStatus() {
+  const order = ['planning', 'active', 'paused', 'done'];
+  const labels = { planning: '計画中', active: '進行中', paused: '休止', done: '完了' };
+  const idx = order.indexOf(project.status);
+  const next = order[(idx + 1) % order.length];
+
+  if (!confirm(`ステータスを「${labels[next]}」に変更しますか？`)) return;
+
+  const wasActive = project.status !== 'done';
+  try {
+    await apiFetch(`/api/projects/${project.id}`, {
+      method: 'PUT',
+      body: JSON.stringify({ status: next }),
+    });
+    project.status = next;
+    renderProject();
+    if (next === 'done' && wasActive) {
+      openModal('reviewConfirmModal');
+    } else {
+      showToast(`✅ ステータスを「${labels[next]}」に変更しました`);
+    }
+  } catch (e) {
+    showToast(`エラー: ${e.message}`);
+  }
 }
 
 function renderTasks() {
@@ -1159,7 +1193,10 @@ async function loadGithub() {
 
     document.getElementById('githubSection').style.display = '';
     const commits = data.commits.slice(0, 5);
-    document.getElementById('githubContent').innerHTML = commits.map(c => `
+    const repoUrl = `https://github.com/${project.github_repo}`;
+    document.getElementById('githubContent').innerHTML =
+      `<div style="margin-bottom:8px;"><a href="${escHtml(repoUrl)}" target="_blank" rel="noopener" style="font-size:13px;color:var(--primary-dark);text-decoration:none;">🐙 ${escHtml(project.github_repo)} ↗</a></div>` +
+      commits.map(c => `
       <div class="commit-item">
         <span style="color:var(--text-sub);">📦</span>
         <div style="flex:1;">

@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "project-os (Pages Dev)",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["wrangler", "pages", "dev", "public", "--compatibility-date=2024-01-01"],
+      "port": 8788
+    },
+    {
+      "name": "project-os-cron (Worker Dev)",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "worker-cron", "run", "dev"],
+      "port": 8787
+    }
+  ]
+}

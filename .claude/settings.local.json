@@ -9,7 +9,8 @@
       "Bash(npx wrangler:*)",
       "Bash(ls *.sql)",
       "Bash(cat migration*.sql)",
-      "Bash(grep -rn \"icon-pia-glasses\\\\|favicon\\\\|rel=\"\"icon\"\"\\\\|apple-touch-icon\" public/*.html)"
+      "Bash(grep -rn \"icon-pia-glasses\\\\|favicon\\\\|rel=\"\"icon\"\"\\\\|apple-touch-icon\" public/*.html)",
+      "mcp__Claude_Preview__preview_start"
     ]
   }
 }

@@ -64,6 +64,7 @@ function renderProjects() {
     return;
   }
 
+  const statusLabels = { planning: '計画中', active: '進行中', paused: '休止', done: '完了' };
   el.innerHTML = filtered.map(p => {
     const typeIcon = p.type === 'study' ? '📖' : '🔨';
     const total = p.total_tasks || 0;
@@ -79,7 +80,8 @@ function renderProjects() {
         <div class="project-card-header">
           <span class="project-type-icon">${typeIcon}</span>
           <span class="project-name">${escHtml(p.name)}</span>
-          ${p.github_repo ? '<span style="font-size:14px;">🔗</span>' : ''}
+          <span class="status-badge ${p.status}" style="cursor:default;">${statusLabels[p.status] || p.status}</span>
+          ${p.github_repo ? `<a href="https://github.com/${escHtml(p.github_repo)}" target="_blank" rel="noopener" onclick="event.stopPropagation();" style="font-size:14px;text-decoration:none;" title="${escHtml(p.github_repo)}">🔗</a>` : ''}
         </div>
         <div class="progress-bar" style="margin-bottom:6px;">
           <div class="progress-bar-fill" style="width:${pct}%"></div>

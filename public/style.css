@@ -751,6 +751,13 @@ input:focus, textarea:focus, select:focus { border-color: var(--primary); }
 .tags-filter .tag-badge { cursor: pointer; transition: all 0.2s; }
 .tags-filter .tag-badge.active { background: #5BA68A; color: #fff; }
 
+/* ===== Status badge ===== */
+.status-badge { display: inline-block; padding: 2px 10px; border-radius: 10px; font-size: 11px; font-weight: 600; cursor: pointer; border: none; line-height: 1.6; background: none; }
+.status-badge.planning { background: #FDE68A; color: #92400E; }
+.status-badge.active   { background: #86EFAC; color: #14532D; }
+.status-badge.paused   { background: #E5E7EB; color: #6B7280; }
+.status-badge.done     { background: #7EC8B0; color: #fff; }
+
 /* ===== Responsive ===== */
 @media (max-width: 375px) {
   .project-card { padding: 12px 14px; }
